@@ -46,10 +46,8 @@ streamlit run app.py
 Browse the Library tab, use the search and level filters to find your abilities, and click Prepare. They will move to your Active Loadout.
 
 ### Step 3: Manage Combat
-- In the Active Loadout tab, you can view the full details of your prepared abilities.
-
 - Select your mode (Spells or Maneuvers) in the sidebar.
-
+- In the Active Loadout tab, you can view the full details of your prepared abilities.
 - Click Cast or Use Dice to subtract resources from your sidebar counters.
 
 ### Step 4: Save Your Progress
