@@ -6,7 +6,7 @@ A lightweight, powerful, and structure-aware ability manager for D&D 5e. This to
 
 ## Features
 
-* **Smart Parsing:** Automatically handles 5eTools JSON schemas, "Guy's Arcane Yionkers" format, and simple custom maneuver lists.
+* **Smart Parsing:** Automatically handles 5eTools JSON schemas and simple custom maneuver lists.
 * **Metadata Extraction:** Automatically unwraps complex JSON to show Casting Time, Range, and Duration.
 * **Dual Tracking:** Switch between **Spellcaster Mode** (Level 1-9 slots) and **Martial Mode** (Superiority Dice).
 * **Session Bundles:** Export your entire session—including the library, prepared spells, and remaining slots—into a single file to resume later.
