@@ -61,13 +61,59 @@ with st.sidebar:
     else: st.number_input("Dice Remaining", 0, 20, key="dice_widget")
 
 with col_main:
-    with st.expander("📖 COMPLETE SYSTEM MANUAL"):
-        help_tabs = st.tabs(["🚀 Setup", "👤 Sheet", "⚔️ Combat", "✍️ Creator", "💾 Saving"])
-        with help_tabs[0]: st.markdown("1. Upload Libraries.\n2. Prepare to Loadout.")
-        with help_tabs[1]: st.markdown("Stats & Skills are auto-calculated.\n\n**⚠️ NOTE:** Toggle Edit Mode to change base stats. **Press ENTER** after typing.")
-        with help_tabs[2]: st.markdown("Use Sheet for HP/AC/Rolls. Use Loadout for Spells.")
-        with help_tabs[3]: st.markdown("Custom spells save to your bundle.")
-        with help_tabs[4]: st.markdown("Export often. Re-upload the bundle to resume.")
+    # --- RESTORED FULL SYSTEM MANUAL ---
+    with st.expander("📖 COMPLETE SYSTEM MANUAL - Click to Open"):
+        help_tabs = st.tabs(["🚀 Getting Started", "👤 Character Sheet", "⚔️ Combat", "✍️ Homebrew", "💾 Saving/Loading"])
+        
+        with help_tabs[0]:
+            st.markdown("""
+            ### Initial Setup
+            1. **Upload Libraries:** Drag and drop one or more JSON files (spells, maneuvers, or items) into the **Library Uploader**.
+            2. **Browse & Filter:** Use the **📚 Library** tab. You can search by name or filter by Level (0-9).
+            3. **Prepare:** Click **Prepare** on any ability. This moves it to your **Active Loadout** for quick access.
+            
+            **Note:** The top-right of each entry shows which file it came from!
+            """)
+
+        with help_tabs[1]:
+            st.markdown("""
+            ### Using the Character Sheet
+            1. **Stats & Skills:** Modifiers and skill bonuses are calculated automatically based on your Ability Scores and Level.
+            2. **Editing:** Toggle **Edit Mode** to change Max HP, AC, or base Stats. 
+            
+            **⚠️ IMPORTANT:** When changing any value in Edit Mode, **you must press ENTER** for the change to be saved.
+            3. **Rolling:** Click any stat or skill button. The result will appear in a large card at the top of the section.
+            """)
+            
+        with help_tabs[2]:
+            st.markdown("""
+            ### Managing Combat
+            1. **Resource Mode:** In the sidebar, select **Spells** (to track slots) or **Maneuvers** (to track dice/points).
+            2. **The Dashboard:** Use the **🎯 Active Loadout** tab during your turn.
+            3. **Consumption:** * **Cast:** Subtracts 1 slot from the corresponding level. (Cantrips are free).
+               * **Use Dice:** Subtracts 1 from your "Dice Remaining" counter.
+            4. **Quick Info:** Click **Details** on any prepared ability to see the full description without leaving the tab.
+            """)
+
+        with help_tabs[3]:
+            st.markdown("""
+            ### Creating Custom Content
+            1. **The Creator:** Open the **✍️ Creator** tab.
+            2. **Choose Type:**
+                * **Spell:** Asks for Casting Time, Range, and Duration.
+                * **Maneuver:** Asks for Resource Cost and Additional Info.
+            3. **Saving:** Once added, these items appear in your Library. They are **permanently saved** when you export your Session Bundle.
+            """)
+            
+        with help_tabs[4]:
+            st.markdown("""
+            ### Persistent Sessions (Very Important!)
+            Streamlit apps "refresh" and lose data if the browser closes. To prevent this:
+            1. **Export Everything:** Use the sidebar button. This bundles your **Library + Loadout + Resources + Character** into one `.json` file.
+            2. **The Reload:** Next time you play, **only upload your Bundle file** into the "Import Bundle" slot. 
+            
+            **Warning:** Do not re-upload the original library files if you are importing a bundle; the bundle already contains them!
+            """)
 
     uploaded_files = st.file_uploader("Library Uploader", type=['json'], accept_multiple_files=True)
     if uploaded_files:
@@ -77,11 +123,13 @@ with col_main:
     
     with tab_sheet:
         if not hasattr(engine, 'hp'):
-            st.error("Engine attributes missing. Reboot/Restart the app to initialize.")
+            st.error("Engine attributes missing. Restart App.")
             st.stop()
 
         edit_mode = st.toggle("🛠️ EDIT MODE (Change Stats/Max HP) - Press ENTER after typing!", value=False)
-        stat_result_area = st.empty()
+        
+        # --- PLACEHOLDER FOR LARGE RESULTS ---
+        roll_display = st.empty()
 
         if edit_mode:
             st.subheader("🛠️ Character Editor")
@@ -115,14 +163,27 @@ with col_main:
                     st.markdown(f"<p style='text-align:center; margin:0;'>{s}</p><h2 style='text-align:center; color:#00ffcc; margin:0;'>{mod:+}</h2><p style='text-align:center; color:#555;'>{engine.stats[s]}</p>", unsafe_allow_html=True)
                     if st.button(f"Roll", key=f"br_{s}", use_container_width=True):
                         r, t = engine.roll_dice(20, 1, mod)
-                        stat_result_area.markdown(f"""<div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 20px; border: 2px solid #00ffcc; margin-bottom: 20px;"><p style="color: #00ffcc; margin: 0;">{s} CHECK</p><h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1><p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {mod:+}</p></div>""", unsafe_allow_html=True)
+                        roll_display.markdown(f"""
+                            <div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 25px; border: 3px solid #00ffcc; margin-bottom: 20px;">
+                                <p style="color: #00ffcc; margin: 0; font-weight: bold; letter-spacing: 2px;">{s.upper()} CHECK</p>
+                                <h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1>
+                                <p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {mod:+}</p>
+                            </div>
+                        """, unsafe_allow_html=True)
                         time.sleep(5)
-                        stat_result_area.empty()
+                        roll_display.empty()
 
         st.divider()
         st.subheader("🎯 Skills")
-        skill_result_area = st.empty()
-        skills = {"Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR", "Deception": "CHA", "History": "INT", "Insight": "WIS", "Intimidation": "CHA", "Investigation": "INT", "Medicine": "WIS", "Nature": "INT", "Perception": "WIS", "Performance": "CHA", "Persuasion": "CHA", "Religion": "INT", "Sleight of Hand": "DEX", "Stealth": "DEX", "Survival": "WIS"}
+        
+        # --- SKILLS ---
+        skills = {
+            "Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR",
+            "Deception": "CHA", "History": "INT", "Insight": "WIS", "Intimidation": "CHA",
+            "Investigation": "INT", "Medicine": "WIS", "Nature": "INT", "Perception": "WIS",
+            "Performance": "CHA", "Persuasion": "CHA", "Religion": "INT", "Sleight of Hand": "DEX",
+            "Stealth": "DEX", "Survival": "WIS"
+        }
         sk1, sk2 = st.columns(2)
         for i, (sk, st_map) in enumerate(skills.items()):
             target = sk1 if i < 9 else sk2
@@ -136,10 +197,17 @@ with col_main:
                 c_n.markdown(f"**{sk}** <small>({st_map})</small>", unsafe_allow_html=True)
                 if c_r.button(f"{total:+}", key=f"roll_{sk}", use_container_width=True):
                     r, t = engine.roll_dice(20, 1, total)
-                    skill_result_area.markdown(f"""<div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 20px; border: 2px solid #00ffcc; margin-bottom: 20px;"><p style="color: #00ffcc; margin: 0;">{sk.upper()} ROLL</p><h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1><p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {total:+}</p></div>""", unsafe_allow_html=True)
+                    roll_display.markdown(f"""
+                        <div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 25px; border: 3px solid #00ffcc; margin-bottom: 20px;">
+                            <p style="color: #00ffcc; margin: 0; font-weight: bold; letter-spacing: 2px;">{sk.upper()} ROLL</p>
+                            <h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1>
+                            <p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {total:+}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
                     time.sleep(5)
-                    skill_result_area.empty()
+                    roll_display.empty()
 
+    # (Library, Loadout, Creator Tabs follow)
     with tab_lib:
         if not engine.library.empty:
             lc1, lc2 = st.columns([3, 1])
@@ -165,7 +233,7 @@ with col_main:
                     r_c.markdown(f"**`{tag}`**")
                     ci, ca = st.columns([4, 1])
                     with ci: 
-                        st.caption(engine.parse_metadata(row)); 
+                        st.caption(engine.parse_metadata(row))
                         with st.expander("Details"): st.write(row['description'])
                     with ca:
                         if mode == "Spells": st.button("Cast", key=f"c_lo_{idx}", on_click=cast_spell_cb, args=(int(row['level']),))
@@ -184,7 +252,7 @@ with col_main:
             with c2: cost = st.text_input("Resource Cost")
             if st.button("Add Maneuver"): engine.add_custom_maneuver(name, level, cost, "", ""); st.rerun()
 
-# --- DICE COLUMN ---
+# --- RIGHT SIDEBAR: DICE COLUMN ---
 with col_dice:
     st.markdown("### 🎲 Dice")
     dt, ht = st.tabs(["Roller", "History"])
