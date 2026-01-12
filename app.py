@@ -55,13 +55,48 @@ with st.sidebar:
         st.number_input("Dice Remaining", 0, 20, key="dice_widget")
 
 # --- USER GUIDE ---
-with st.expander("📖 HELP & USAGE GUIDE"):
-    st.markdown("""
-    **1. Multi-Upload:** Drag multiple JSONs into the uploader. The source file will be tracked in the top-right.
-    **2. Filtering:** Use the search bar or level dropdown in each tab to find specific abilities.
-    **3. Creator:** Choose 'Spell' or 'Maneuver' to get relevant fields. Custom items are saved in your export!
-    """)
+with st.expander("📖 COMPLETE SYSTEM MANUAL - Click to Open"):
+    help_tabs = st.tabs(["🚀 Getting Started", "⚔️ Combat", "✍️ Homebrew", "💾 Saving/Loading"])
+    
+    with help_tabs[0]:
+        st.markdown("""
+        ### Initial Setup
+        1. **Upload Libraries:** Drag and drop one or more JSON files (spells, maneuvers, or items) into the **Library Uploader**.
+        2. **Browse & Filter:** Use the **📚 Library** tab. You can search by name or filter by Level (0-9).
+        3. **Prepare:** Click **Prepare** on any ability. This moves it to your **Active Loadout** for quick access.
+        
+        **Note:** The top-right of each entry shows which file it came from!
+        """)
+        
+    with help_tabs[1]:
+        st.markdown("""
+        ### Managing Combat
+        1. **Resource Mode:** In the sidebar, select **Spells** (to track slots) or **Maneuvers** (to track dice/points).
+        2. **The Dashboard:** Use the **🎯 Active Loadout** tab during your turn.
+        3. **Consumption:** * **Cast:** Subtracts 1 slot from the corresponding level in the sidebar. (Cantrips are free).
+            * **Use Dice:** Subtracts 1 from your "Dice Remaining" counter.
+        4. **Quick Info:** Click **Details** on any prepared ability to see the full description without leaving the tab.
+        """)
 
+    with help_tabs[2]:
+        st.markdown("""
+        ### Creating Custom Content
+        1. **The Creator:** Open the **✍️ Creator** tab.
+        2. **Choose Type:**
+            * **Spell:** Asks for Casting Time, Range, and Duration.
+            * **Maneuver:** Asks for Resource Cost and Additional Info.
+        3. **Saving:** Once added, these items appear in your Library. They are **permanently saved** when you export your Session Bundle.
+        """)
+        
+    with help_tabs[3]:
+        st.markdown("""
+        ### Persistent Sessions (Very Important!)
+        Streamlit apps "refresh" and lose data if the browser closes. To prevent this:
+        1. **Export Everything:** Use the sidebar button. This bundles your **Library + Loadout + Resources** into one `.json` file.
+        2. **The Reload:** Next time you play, **only upload your Bundle file** into the "Import Bundle" slot. 
+        
+        **Warning:** Do not re-upload the original library files if you are importing a bundle; the bundle already contains them!
+        """)
 # --- MAIN UI ---
 uploaded_files = st.file_uploader("Library Uploader (Multiple JSONs)", type=['json'], accept_multiple_files=True)
 if uploaded_files:
@@ -154,3 +189,4 @@ with tab3:
         if st.button("Add Maneuver"):
             engine.add_custom_maneuver(name, level, res_cost, info, desc)
             st.rerun()
+
