@@ -1,15 +1,33 @@
 import pandas as pd
 import json
 import re
+import random
 
 
 class AbilityManager:
     def __init__(self):
         self.library = pd.DataFrame()
         self.loadout = pd.DataFrame()
-        # Default internal state; UI state is managed via Streamlit keys
         self.resources = {"Slots": {f"lvl_{i}": 0 for i in range(1, 10)}, "Dice": 4}
         self.current_file_names = []
+        self.roll_history = []  # For the history tab
+
+    def roll_dice(self, sides, amount, modifier=0):
+        rolls = [random.randint(1, sides) for _ in range(amount)]
+        total = sum(rolls) + modifier
+
+        # Add to history
+        mod_str = f"{'+' if modifier >= 0 else ''}{modifier}"
+        entry = {
+            "time": pd.Timestamp.now().strftime("%H:%M:%S"),
+            "formula": f"{amount}d{sides}{mod_str}",
+            "result": total,
+            "details": f"{rolls} {mod_str}"
+        }
+        self.roll_history.insert(0, entry)  # Most recent first
+        if len(self.roll_history) > 20: self.roll_history.pop()  # Keep last 20
+
+        return rolls, total
 
     def flatten_entries(self, entry):
         if isinstance(entry, str):
@@ -24,61 +42,38 @@ class AbilityManager:
     def parse_metadata(self, row):
         lvl = row.get('level', 0)
         lvl_str = "Cantrip" if lvl == 0 else f"Level {lvl}"
-
         if row.get('type') == 'Maneuver':
             return f"⚔️ {lvl_str} Maneuver"
-
         meta = [f"✨ {lvl_str}"]
         try:
-            # Check for custom text first, then structured JSON
-            time = row.get('time_text') or (
-                row.get('time')[0].get('unit') if isinstance(row.get('time'), list) else None)
+            time = row.get('time_text') or (row.get('time')[0].get('unit') if isinstance(row.get('time'), list) else None)
             if time: meta.append(f"⏳ {time}")
-
-            rng = row.get('range_text') or (
-                row.get('range', {}).get('distance', {}).get('type') if isinstance(row.get('range'), dict) else None)
+            rng = row.get('range_text') or (row.get('range', {}).get('distance', {}).get('type') if isinstance(row.get('range'), dict) else None)
             if rng: meta.append(f"🎯 {rng}")
-
             if row.get('duration_text'): meta.append(f"⏱️ {row['duration_text']}")
-        except:
-            return f"✨ {lvl_str} Ability"
+        except: return f"✨ {lvl_str} Ability"
         return " | ".join(meta)
 
     def load_file(self, uploaded_file):
-        if uploaded_file.name in self.current_file_names:
-            return
-
+        if uploaded_file.name in self.current_file_names: return
         data = json.load(uploaded_file)
         raw_list = data.get('spell', data) if isinstance(data, dict) else data
         df = pd.DataFrame(raw_list)
         df.columns = [str(c).lower().strip() for c in df.columns]
-
-        # Tag source for the Top-Right labels
         df['source_file'] = uploaded_file.name
-
         if 'name' not in df.columns: df['name'] = "Unnamed"
         df['level'] = pd.to_numeric(df.get('level', 0), errors='coerce').fillna(0).astype(int)
-
         desc_col = next((c for c in ['entries', 'description', 'desc', 'text'] if c in df.columns), None)
         df['description'] = df[desc_col].apply(self.flatten_entries) if desc_col else "No description."
-
-        self.library = pd.concat([self.library, df], ignore_index=True).drop_duplicates(subset=['name']).reset_index(
-            drop=True)
+        self.library = pd.concat([self.library, df], ignore_index=True).drop_duplicates(subset=['name']).reset_index(drop=True)
         self.current_file_names.append(uploaded_file.name)
 
     def add_custom_spell(self, name, level, t_text, r_text, duration, desc):
-        new_spell = {
-            'name': name, 'level': int(level), 'description': desc, 'type': 'Spell',
-            'time_text': t_text, 'range_text': r_text, 'duration_text': duration,
-            'source_file': 'Custom'
-        }
+        new_spell = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text, 'duration_text': duration, 'source_file': 'Custom'}
         self.library = pd.concat([self.library, pd.DataFrame([new_spell])], ignore_index=True).reset_index(drop=True)
 
     def add_custom_maneuver(self, name, level, resource, add_info, desc):
-        new_man = {
-            'name': name, 'level': int(level), 'description': f"{desc}\n\n**Additional Info:** {add_info}",
-            'type': 'Maneuver', 'resource_cost': resource, 'source_file': 'Custom'
-        }
+        new_man = {'name': name, 'level': int(level), 'description': f"{desc}\n\n**Additional Info:** {add_info}", 'type': 'Maneuver', 'resource_cost': resource, 'source_file': 'Custom'}
         self.library = pd.concat([self.library, pd.DataFrame([new_man])], ignore_index=True).reset_index(drop=True)
 
     def add_to_loadout(self, row):
