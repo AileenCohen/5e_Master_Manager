@@ -12,18 +12,15 @@ if 'engine' not in st.session_state:
     st.session_state.engine = AbilityManager()
 engine = st.session_state.engine
 
-
 # --- CALLBACKS ---
 def cast_spell_cb(lvl):
     key = f"input_lvl_{lvl}"
     if key in st.session_state and st.session_state[key] > 0:
         st.session_state[key] -= 1
 
-
 def use_dice_cb():
     if "dice_widget" in st.session_state and st.session_state["dice_widget"] > 0:
         st.session_state["dice_widget"] -= 1
-
 
 def load_bundle_cb():
     if st.session_state.bundle_uploader:
@@ -41,15 +38,13 @@ def load_bundle_cb():
             engine.level = char.get('level', engine.level)
             engine.proficiencies = char.get('proficiencies', [])
 
-
-# --- LAYOUT ---
+# --- MAIN LAYOUT ---
 col_main, col_dice = st.columns([3, 1], gap="medium")
 
 with st.sidebar:
     st.title("🧙‍♂️ Session Control")
     save_data = json.dumps({
-        "res": {"Slots": {f"lvl_{i}": st.session_state.get(f"input_lvl_{i}", 0) for i in range(1, 10)},
-                "Dice": st.session_state.get("dice_widget", 4)},
+        "res": {"Slots": {f"lvl_{i}": st.session_state.get(f"input_lvl_{i}", 0) for i in range(1, 10)}, "Dice": st.session_state.get("dice_widget", 4)},
         "loadout": engine.loadout.to_dict(orient='records'),
         "library": engine.library.to_dict(orient='records') if not engine.library.empty else None,
         "character": {
@@ -57,50 +52,35 @@ with st.sidebar:
             "level": engine.level, "proficiencies": engine.proficiencies
         }
     })
-    st.download_button("💾 Export Everything", data=save_data, file_name="session_bundle.json",
-                       use_container_width=True)
+    st.download_button("💾 Export Everything", data=save_data, file_name="session_bundle.json", use_container_width=True)
     st.file_uploader("📂 Import Bundle", type=['json'], key="bundle_uploader", on_change=load_bundle_cb)
     st.divider()
     mode = st.radio("Resource Mode:", ["Spells", "Maneuvers"])
     if mode == "Spells":
         for lvl in range(1, 10): st.number_input(f"Lvl {lvl}", 0, 20, key=f"input_lvl_{lvl}")
-    else:
-        st.number_input("Dice Remaining", 0, 20, key="dice_widget")
+    else: st.number_input("Dice Remaining", 0, 20, key="dice_widget")
 
 with col_main:
-    # --- USER MANUAL ---
-    with st.expander("📖 COMPLETE SYSTEM MANUAL - Click to Open"):
-        help_tabs = st.tabs(
-            ["🚀 Getting Started", "👤 Character Sheet", "⚔️ Combat", "✍️ Homebrew", "💾 Saving/Loading"])
-        with help_tabs[0]:
-            st.markdown(
-                "### Initial Setup\n1. **Upload Libraries:** Drag JSONs into the Library Uploader.\n2. **Browse:** Use the **📚 Library** tab.\n3. **Prepare:** Click **Prepare** to move to Active Loadout.\n\n**Note:** Source tracking is in the top-right!")
-        with help_tabs[1]:
-            st.markdown(
-                "### Character Sheet\n1. Modifiers calculate automatically.\n2. **Edit Mode:** Change Max HP/AC/Stats. **⚠️ IMPORTANT:** Press ENTER after typing values.\n3. **Rolling:** Skill results appear large then fade after 5 seconds.")
-        with help_tabs[2]:
-            st.markdown(
-                "### Combat\n1. **Resource Mode:** Spells or Maneuvers.\n2. **Consumption:** Cast/Use buttons track slots. Cantrips are free.\n3. **Health:** Use Sheet tab for Hit/Heal.")
-        with help_tabs[3]:
-            st.markdown("### Creator\nCreate custom spells/maneuvers. They save in your Export Bundle.")
-        with help_tabs[4]:
-            st.markdown(
-                "### Persistent Sessions\n1. **Export:** Bundles Library + Loadout + Resources + Character.\n2. **Reload:** Only upload Bundle file next session.\n\n**Warning:** Do not re-upload original libraries if importing a bundle!")
+    with st.expander("📖 COMPLETE SYSTEM MANUAL"):
+        help_tabs = st.tabs(["🚀 Setup", "👤 Sheet", "⚔️ Combat", "✍️ Creator", "💾 Saving"])
+        with help_tabs[0]: st.markdown("1. Upload Libraries.\n2. Prepare to Loadout.")
+        with help_tabs[1]: st.markdown("Stats & Skills are auto-calculated.\n\n**⚠️ NOTE:** Toggle Edit Mode to change base stats. **Press ENTER** after typing.")
+        with help_tabs[2]: st.markdown("Use Sheet for HP/AC/Rolls. Use Loadout for Spells.")
+        with help_tabs[3]: st.markdown("Custom spells save to your bundle.")
+        with help_tabs[4]: st.markdown("Export often. Re-upload the bundle to resume.")
 
     uploaded_files = st.file_uploader("Library Uploader", type=['json'], accept_multiple_files=True)
     if uploaded_files:
         for f in uploaded_files: engine.load_file(f)
 
     tab_sheet, tab_lib, tab_load, tab_cre = st.tabs(["👤 Sheet", "📚 Library", "🎯 Active Loadout", "✍️ Creator"])
-
+    
     with tab_sheet:
         if not hasattr(engine, 'hp'):
-            st.error("Engine attributes missing. Restart App.")
+            st.error("Engine attributes missing. Reboot/Restart the app to initialize.")
             st.stop()
 
-        edit_mode = st.toggle("🛠️ EDIT MODE (Change Stats/Max HP) - Press ENTER after typing values!", value=False)
-
-        # --- PLACEHOLDER FOR LARGE RESULTS (STATS) ---
+        edit_mode = st.toggle("🛠️ EDIT MODE (Change Stats/Max HP) - Press ENTER after typing!", value=False)
         stat_result_area = st.empty()
 
         if edit_mode:
@@ -132,56 +112,31 @@ with col_main:
             for i, s in enumerate(engine.stats):
                 with sc[i]:
                     mod = engine.get_mod(engine.stats[s])
-                    st.markdown(
-                        f"<p style='text-align:center; margin:0;'>{s}</p><h2 style='text-align:center; color:#00ffcc; margin:0;'>{mod:+}</h2><p style='text-align:center; color:#555;'>{engine.stats[s]}</p>",
-                        unsafe_allow_html=True)
+                    st.markdown(f"<p style='text-align:center; margin:0;'>{s}</p><h2 style='text-align:center; color:#00ffcc; margin:0;'>{mod:+}</h2><p style='text-align:center; color:#555;'>{engine.stats[s]}</p>", unsafe_allow_html=True)
                     if st.button(f"Roll", key=f"br_{s}", use_container_width=True):
                         r, t = engine.roll_dice(20, 1, mod)
-                        stat_result_area.markdown(f"""
-                            <div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 20px; border: 2px solid #00ffcc; margin-bottom: 20px;">
-                                <p style="color: #00ffcc; margin: 0;">{s} CHECK</p>
-                                <h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1>
-                                <p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {mod:+}</p>
-                            </div>
-                        """, unsafe_allow_html=True)
+                        stat_result_area.markdown(f"""<div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 20px; border: 2px solid #00ffcc; margin-bottom: 20px;"><p style="color: #00ffcc; margin: 0;">{s} CHECK</p><h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1><p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {mod:+}</p></div>""", unsafe_allow_html=True)
                         time.sleep(5)
                         stat_result_area.empty()
 
         st.divider()
         st.subheader("🎯 Skills")
-
-        # --- PLACEHOLDER FOR LARGE RESULTS (SKILLS) ---
         skill_result_area = st.empty()
-
-        skills = {
-            "Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR",
-            "Deception": "CHA", "History": "INT", "Insight": "WIS", "Intimidation": "CHA",
-            "Investigation": "INT", "Medicine": "WIS", "Nature": "INT", "Perception": "WIS",
-            "Performance": "CHA", "Persuasion": "CHA", "Religion": "INT", "Sleight of Hand": "DEX",
-            "Stealth": "DEX", "Survival": "WIS"
-        }
+        skills = {"Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR", "Deception": "CHA", "History": "INT", "Insight": "WIS", "Intimidation": "CHA", "Investigation": "INT", "Medicine": "WIS", "Nature": "INT", "Perception": "WIS", "Performance": "CHA", "Persuasion": "CHA", "Religion": "INT", "Sleight of Hand": "DEX", "Stealth": "DEX", "Survival": "WIS"}
         sk1, sk2 = st.columns(2)
         for i, (sk, st_map) in enumerate(skills.items()):
             target = sk1 if i < 9 else sk2
             with target:
                 c_p, c_n, c_r = st.columns([1, 4, 2])
                 is_p = c_p.checkbox("", key=f"prof_{sk}", value=(sk in engine.proficiencies))
-                if is_p and sk not in engine.proficiencies:
-                    engine.proficiencies.append(sk)
-                elif not is_p and sk in engine.proficiencies:
-                    engine.proficiencies.remove(sk)
+                if is_p and sk not in engine.proficiencies: engine.proficiencies.append(sk)
+                elif not is_p and sk in engine.proficiencies: engine.proficiencies.remove(sk)
                 mod = engine.get_mod(engine.stats[st_map])
                 total = mod + (engine.get_prof_bonus() if is_p else 0)
                 c_n.markdown(f"**{sk}** <small>({st_map})</small>", unsafe_allow_html=True)
                 if c_r.button(f"{total:+}", key=f"roll_{sk}", use_container_width=True):
                     r, t = engine.roll_dice(20, 1, total)
-                    skill_result_area.markdown(f"""
-                        <div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 20px; border: 2px solid #00ffcc; margin-bottom: 20px;">
-                            <p style="color: #00ffcc; margin: 0;">{sk.upper()} ROLL</p>
-                            <h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1>
-                            <p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {total:+}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    skill_result_area.markdown(f"""<div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 20px; border: 2px solid #00ffcc; margin-bottom: 20px;"><p style="color: #00ffcc; margin: 0;">{sk.upper()} ROLL</p><h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1><p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {total:+}</p></div>""", unsafe_allow_html=True)
                     time.sleep(5)
                     skill_result_area.empty()
 
@@ -189,18 +144,15 @@ with col_main:
         if not engine.library.empty:
             lc1, lc2 = st.columns([3, 1])
             search = lc1.text_input("Search Library...", key="lib_s")
-            filt = lc2.selectbox("Filter", ["All"] + [str(i) for i in range(10)], key="lib_f")
+            filt = lc2.selectbox("Filter", ["All"]+[str(i) for i in range(10)], key="lib_f")
             lib_res = engine.library[engine.library['name'].str.contains(search, case=False, na=False)]
             if filt != "All": lib_res = lib_res[lib_res['level'] == int(filt)]
             for idx, row in lib_res.iterrows():
                 h, s = st.columns([4, 1])
-                with h:
-                    exp = st.expander(f"📖 {row['name']} (Lvl {row['level']})")
-                with s:
-                    st.caption(f"📂 {row.get('source_file', 'Custom')[:10]}")
+                with h: exp = st.expander(f"📖 {row['name']} (Lvl {row['level']})")
+                with s: st.caption(f"📂 {row.get('source_file', 'Custom')[:10]}")
                 with exp:
-                    st.caption(engine.parse_metadata(row));
-                    st.write(row['description'])
+                    st.caption(engine.parse_metadata(row)); st.write(row['description'])
                     if st.button("Prepare", key=f"p_{idx}"): engine.add_to_loadout(row); st.toast("Added!")
 
     with tab_load:
@@ -212,32 +164,27 @@ with col_main:
                     tag = row.get('resource_cost') or row.get('source_file', 'Custom')
                     r_c.markdown(f"**`{tag}`**")
                     ci, ca = st.columns([4, 1])
-                    with ci:
-                        st.caption(engine.parse_metadata(row))
+                    with ci: 
+                        st.caption(engine.parse_metadata(row)); 
                         with st.expander("Details"): st.write(row['description'])
                     with ca:
-                        if mode == "Spells":
-                            st.button("Cast", key=f"c_lo_{idx}", on_click=cast_spell_cb, args=(int(row['level']),))
-                        else:
-                            st.button("Use Dice", key=f"d_lo_{idx}", on_click=use_dice_cb)
+                        if mode == "Spells": st.button("Cast", key=f"c_lo_{idx}", on_click=cast_spell_cb, args=(int(row['level']),))
+                        else: st.button("Use Dice", key=f"d_lo_{idx}", on_click=use_dice_cb)
                         if st.button("Remove", key=f"r_lo_{idx}"): engine.remove_from_loadout(idx); st.rerun()
 
     with tab_cre:
         st.subheader("✍️ Creator")
         c_type = st.radio("Type", ["Spell", "Maneuver"], horizontal=True)
         c1, c2 = st.columns(2)
-        with c1:
-            name = st.text_input("Name"); level = st.number_input("Level", 0, 9)
+        with c1: name = st.text_input("Name"); level = st.number_input("Level", 0, 9)
         if c_type == "Spell":
-            with c2:
-                dur = st.text_input("Duration")
+            with c2: dur = st.text_input("Duration")
             if st.button("Add Spell"): engine.add_custom_spell(name, level, "", "", dur, ""); st.rerun()
         else:
-            with c2:
-                cost = st.text_input("Resource Cost")
+            with c2: cost = st.text_input("Resource Cost")
             if st.button("Add Maneuver"): engine.add_custom_maneuver(name, level, cost, "", ""); st.rerun()
 
-# --- DICE ---
+# --- DICE COLUMN ---
 with col_dice:
     st.markdown("### 🎲 Dice")
     dt, ht = st.tabs(["Roller", "History"])
@@ -245,17 +192,13 @@ with col_dice:
         with st.container(border=True):
             sides = st.selectbox("Die", [20, 12, 10, 8, 6, 4], format_func=lambda x: f"d{x}")
             cq, cm = st.columns(2)
-            qty = cq.number_input("Qty", 1, 20, 1);
-            mod = cm.number_input("Mod", -20, 20, 0)
+            qty = cq.number_input("Qty", 1, 20, 1); mod = cm.number_input("Mod", -20, 20, 0)
             if st.button("🔥 ROLL", use_container_width=True):
                 r, t = engine.roll_dice(sides, qty, mod)
-                color = "#FFD700" if (sides == 20 and 20 in r) else "#00ffcc"
-                if sides == 20 and 1 in r: color = "#FF4B4B"
-                st.markdown(
-                    f"<div style='text-align:center; background:#1a1c24; padding:10px; border:2px solid {color};'><h1 style='color:{color}; margin:0; font-size:3rem;'>{t}</h1><small style='color:#aaa;'>({'+'.join(map(str, r))}) {'+' if mod >= 0 else ''}{mod}</small></div>",
-                    unsafe_allow_html=True)
+                color = "#FFD700" if (sides==20 and 20 in r) else "#00ffcc"
+                if sides==20 and 1 in r: color = "#FF4B4B"
+                st.markdown(f"<div style='text-align:center; background:#1a1c24; padding:10px; border:2px solid {color};'><h1 style='color:{color}; margin:0; font-size:3rem;'>{t}</h1><small style='color:#aaa;'>({'+'.join(map(str,r))}) {'+' if mod>=0 else ''}{mod}</small></div>", unsafe_allow_html=True)
     with ht:
         if hasattr(engine, 'roll_history'):
             for item in engine.roll_history:
-                with st.container(border=True): st.markdown(f"**{item['result']}** ({item['formula']})"); st.caption(
-                    f"{item['time']} | {item['details']}")
+                with st.container(border=True): st.markdown(f"**{item['result']}** ({item['formula']})"); st.caption(f"{item['time']} | {item['details']}")
