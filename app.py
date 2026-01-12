@@ -82,7 +82,7 @@ with col_main:
             2. **Editing:** Toggle **Edit Mode** to change Max HP, AC, or base Stats. 
             
             **⚠️ IMPORTANT:** When changing any value in Edit Mode, **you must press ENTER** for the change to be saved.
-            3. **Rolling:** Click any stat or skill button. The result will appear in a large card at the top of the section.
+            3. **Rolling:** Click any stat or skill button. The result will appear **exactly where you rolled** for a few seconds.
             """)
             
         with help_tabs[2]:
@@ -127,9 +127,7 @@ with col_main:
             st.stop()
 
         edit_mode = st.toggle("🛠️ EDIT MODE (Change Stats/Max HP) - Press ENTER after typing!", value=False)
-        
-        # --- PLACEHOLDER FOR LARGE RESULTS ---
-        roll_display = st.empty()
+        st.divider()
 
         if edit_mode:
             st.subheader("🛠️ Character Editor")
@@ -156,27 +154,32 @@ with col_main:
             prof_col.metric("Prof", f"+{engine.get_prof_bonus()}")
 
             st.divider()
+            
+            # --- ATTRIBUTE ROLLS ---
             sc = st.columns(6)
             for i, s in enumerate(engine.stats):
                 with sc[i]:
                     mod = engine.get_mod(engine.stats[s])
                     st.markdown(f"<p style='text-align:center; margin:0;'>{s}</p><h2 style='text-align:center; color:#00ffcc; margin:0;'>{mod:+}</h2><p style='text-align:center; color:#555;'>{engine.stats[s]}</p>", unsafe_allow_html=True)
+                    
+                    # Local placeholder for the attribute roll
+                    attr_roll_place = st.empty()
+                    
                     if st.button(f"Roll", key=f"br_{s}", use_container_width=True):
                         r, t = engine.roll_dice(20, 1, mod)
-                        roll_display.markdown(f"""
-                            <div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 25px; border: 3px solid #00ffcc; margin-bottom: 20px;">
-                                <p style="color: #00ffcc; margin: 0; font-weight: bold; letter-spacing: 2px;">{s.upper()} CHECK</p>
-                                <h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1>
-                                <p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {mod:+}</p>
+                        attr_roll_place.markdown(f"""
+                            <div style="text-align: center; background: #1a1c24; border-radius: 5px; padding: 10px; border: 2px solid #00ffcc; margin-bottom: 10px;">
+                                <h3 style="color: #00ffcc; margin: 0; font-size: 2rem;">{t}</h3>
+                                <small style="color: #aaa;">({r[0]}){mod:+}</small>
                             </div>
                         """, unsafe_allow_html=True)
                         time.sleep(5)
-                        roll_display.empty()
+                        attr_roll_place.empty()
 
         st.divider()
         st.subheader("🎯 Skills")
         
-        # --- SKILLS ---
+        # --- SKILLS ROLLS ---
         skills = {
             "Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR",
             "Deception": "CHA", "History": "INT", "Insight": "WIS", "Intimidation": "CHA",
@@ -188,26 +191,29 @@ with col_main:
         for i, (sk, st_map) in enumerate(skills.items()):
             target = sk1 if i < 9 else sk2
             with target:
+                # Local placeholder for the skill roll above the row
+                skill_roll_place = st.empty()
+                
                 c_p, c_n, c_r = st.columns([1, 4, 2])
                 is_p = c_p.checkbox("", key=f"prof_{sk}", value=(sk in engine.proficiencies))
                 if is_p and sk not in engine.proficiencies: engine.proficiencies.append(sk)
                 elif not is_p and sk in engine.proficiencies: engine.proficiencies.remove(sk)
+                
                 mod = engine.get_mod(engine.stats[st_map])
                 total = mod + (engine.get_prof_bonus() if is_p else 0)
                 c_n.markdown(f"**{sk}** <small>({st_map})</small>", unsafe_allow_html=True)
+                
                 if c_r.button(f"{total:+}", key=f"roll_{sk}", use_container_width=True):
                     r, t = engine.roll_dice(20, 1, total)
-                    roll_display.markdown(f"""
-                        <div style="text-align: center; background: #1a1c24; border-radius: 10px; padding: 25px; border: 3px solid #00ffcc; margin-bottom: 20px;">
-                            <p style="color: #00ffcc; margin: 0; font-weight: bold; letter-spacing: 2px;">{sk.upper()} ROLL</p>
-                            <h1 style="color: #00ffcc; margin: 0; font-size: 5rem;">{t}</h1>
-                            <p style="color: #aaa; margin: 0; font-size: 1.2rem;">Calculation: ({r[0]}) {total:+}</p>
+                    skill_roll_place.markdown(f"""
+                        <div style="text-align: center; background: #1a1c24; border-radius: 5px; padding: 10px; border: 2px solid #00ffcc; margin-bottom: 5px;">
+                            <h4 style="color: #00ffcc; margin: 0; font-size: 1.5rem;">{t}</h4>
+                            <small style="color: #aaa;">Roll: {r[0]} | Mod: {total:+}</small>
                         </div>
                     """, unsafe_allow_html=True)
                     time.sleep(5)
-                    roll_display.empty()
+                    skill_roll_place.empty()
 
-    # (Library, Loadout, Creator Tabs follow)
     with tab_lib:
         if not engine.library.empty:
             lc1, lc2 = st.columns([3, 1])
@@ -252,7 +258,7 @@ with col_main:
             with c2: cost = st.text_input("Resource Cost")
             if st.button("Add Maneuver"): engine.add_custom_maneuver(name, level, cost, "", ""); st.rerun()
 
-# --- RIGHT SIDEBAR: DICE COLUMN ---
+# --- DICE COLUMN ---
 with col_dice:
     st.markdown("### 🎲 Dice")
     dt, ht = st.tabs(["Roller", "History"])
