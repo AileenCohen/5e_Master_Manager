@@ -3,20 +3,20 @@ import json
 import re
 import random
 
-
 class AbilityManager:
     def __init__(self):
         self.library = pd.DataFrame()
         self.loadout = pd.DataFrame()
         self.resources = {"Slots": {f"lvl_{i}": 0 for i in range(1, 10)}, "Dice": 4}
         self.current_file_names = []
-        self.roll_history = []  # For the history tab
+        self.roll_history = []
 
     def roll_dice(self, sides, amount, modifier=0):
+        """Generates random numbers and updates history."""
         rolls = [random.randint(1, sides) for _ in range(amount)]
         total = sum(rolls) + modifier
-
-        # Add to history
+        
+        # Create history entry
         mod_str = f"{'+' if modifier >= 0 else ''}{modifier}"
         entry = {
             "time": pd.Timestamp.now().strftime("%H:%M:%S"),
@@ -24,15 +24,18 @@ class AbilityManager:
             "result": total,
             "details": f"{rolls} {mod_str}"
         }
-        self.roll_history.insert(0, entry)  # Most recent first
-        if len(self.roll_history) > 20: self.roll_history.pop()  # Keep last 20
-
+        # Add to the start of the list
+        self.roll_history.insert(0, entry)
+        if len(self.roll_history) > 20: 
+            self.roll_history.pop()
+            
         return rolls, total
 
+    # --- Keep your existing methods below (flatten_entries, parse_metadata, etc.) ---
     def flatten_entries(self, entry):
-        if isinstance(entry, str):
+        if isinstance(entry, str): 
             return re.sub(r'\{@\w+ ([^|}]*)[^}]*\}', r'\1', entry)
-        if isinstance(entry, list):
+        if isinstance(entry, list): 
             return "\n".join([self.flatten_entries(e) for e in entry])
         if isinstance(entry, dict):
             for key in ['entries', 'text', 'items']:
