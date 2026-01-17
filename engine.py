@@ -5,7 +5,7 @@ import random
 
 class AbilityManager:
     def __init__(self):
-        # Initialize dictionaries and lists FIRST to avoid KeyErrors
+        # Character Core - Initialized first to prevent KeyErrors
         self.stats = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
         self.casting_stat = "INT"
         self.hp = {"current": 10, "max": 10}
@@ -13,6 +13,7 @@ class AbilityManager:
         self.ac = 10
         self.proficiencies = []
         
+        # Data Tables
         self.library = pd.DataFrame()
         self.known = pd.DataFrame()
         self.loadout = pd.DataFrame()
@@ -27,7 +28,6 @@ class AbilityManager:
         return (self.level - 1) // 4 + 2
 
     def get_dc(self):
-        # Ensure casting_stat exists in stats
         stat_score = self.stats.get(self.casting_stat, 10)
         return 8 + self.get_prof_bonus() + self.get_mod(stat_score)
 
@@ -63,24 +63,30 @@ class AbilityManager:
         lvl_str = "Cantrip" if lvl == 0 else f"Lvl {lvl}"
         meta = [f"✨ {lvl_str}"]
         try:
+            # Time Logic
             t_data = row.get('time')
-            time = row.get('time_text') or (t_data[0].get('unit') if isinstance(t_data, list) else None)
+            time = row.get('time_text') or (f"{t_data[0].get('number')} {t_data[0].get('unit')}" if isinstance(t_data, list) else None)
             if time: meta.append(f"⏳ {time}")
             
+            # Range Logic - Aggressive check to avoid "Point"
             rng_data = row.get('range', {})
             dist = rng_data.get('distance', {})
-            r_type = str(rng_data.get('type', 'special')).lower()
-            amt, unit = dist.get('amount'), dist.get('type')
-            
-            if r_type == 'self': range_val = f"Self ({amt} {unit})" if amt else "Self"
-            elif r_type == 'touch': range_val = "Touch"
-            elif amt: range_val = f"{amt} {unit}"
-            else: range_val = r_type.capitalize()
+            r_type = str(rng_data.get('type', '')).lower()
+            d_type = str(dist.get('type', '')).lower()
+            amt = dist.get('amount')
+
+            if row.get('range_text'): range_val = row['range_text']
+            elif 'self' in r_type or 'self' in d_type:
+                range_val = f"Self ({amt} {dist.get('type', 'ft')} radius)" if amt else "Self"
+            elif 'touch' in r_type or 'touch' in d_type: range_val = "Touch"
+            elif amt: range_val = f"{amt} {dist.get('type', 'ft')}"
+            else: range_val = r_type.capitalize() if r_type and r_type != 'point' else "Special"
             meta.append(f"🎯 {range_val}")
-            
+
+            # Concentration
             if isinstance(row.get('duration'), list) and row['duration'][0].get('concentration'):
                 meta.append("⚠️ Conc.")
-        except: pass
+        except: meta.append("🎯 Special")
         return " | ".join(meta)
 
     def load_file(self, uploaded_file):
@@ -95,8 +101,22 @@ class AbilityManager:
 
     def learn_ability(self, row):
         if self.known.empty or row['name'] not in self.known['name'].values:
-            self.known = pd.concat([self.known, pd.DataFrame([row])], ignore_index=True)
+            self.known = pd.concat([self.known, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
 
     def prepare_ability(self, row):
         if self.loadout.empty or row['name'] not in self.loadout['name'].values:
-            self.loadout = pd.concat([self.loadout, pd.DataFrame([row])], ignore_index=True)
+            self.loadout = pd.concat([self.loadout, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
+
+    def remove_from_loadout(self, index):
+        self.loadout = self.loadout.drop(index).reset_index(drop=True)
+
+    def forget_ability(self, index):
+        self.known = self.known.drop(index).reset_index(drop=True)
+
+    def add_custom_spell(self, name, level, t_text, r_text, desc):
+        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text}
+        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
+
+    def add_custom_maneuver(self, name, level, cost, desc):
+        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Maneuver', 'resource_cost': cost}
+        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
