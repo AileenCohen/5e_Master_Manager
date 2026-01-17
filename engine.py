@@ -6,7 +6,8 @@ import random
 class AbilityManager:
     def __init__(self):
         self.library = pd.DataFrame()
-        self.loadout = pd.DataFrame()
+        self.known = pd.DataFrame()  # Permanent list (Spellbook)
+        self.loadout = pd.DataFrame() # Daily list (Prepared)
         self.resources = {"Slots": {f"lvl_{i}": 0 for i in range(1, 10)}, "Dice": 4}
         self.current_file_names = []
         
@@ -80,13 +81,12 @@ class AbilityManager:
         self.library = pd.concat([self.library, df], ignore_index=True).drop_duplicates(subset=['name']).reset_index(drop=True)
         self.current_file_names.append(uploaded_file.name)
 
-    def add_custom_spell(self, name, level, t_text, r_text, duration, desc):
-        new_spell = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text, 'duration_text': duration, 'source_file': 'Custom'}
-        self.library = pd.concat([self.library, pd.DataFrame([new_spell])], ignore_index=True).reset_index(drop=True)
+    def learn_spell(self, row):
+        if self.known.empty or row['name'] not in self.known['name'].values:
+            self.known = pd.concat([self.known, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
 
-    def add_custom_maneuver(self, name, level, resource, add_info, desc):
-        new_man = {'name': name, 'level': int(level), 'description': f"{desc}\n\n**Additional Info:** {add_info}", 'type': 'Maneuver', 'resource_cost': resource, 'source_file': 'Custom'}
-        self.library = pd.concat([self.library, pd.DataFrame([new_man])], ignore_index=True).reset_index(drop=True)
+    def unlearn_spell(self, index):
+        self.known = self.known.drop(index).reset_index(drop=True)
 
     def add_to_loadout(self, row):
         if self.loadout.empty or row['name'] not in self.loadout['name'].values:
@@ -94,3 +94,11 @@ class AbilityManager:
 
     def remove_from_loadout(self, index):
         self.loadout = self.loadout.drop(index).reset_index(drop=True)
+
+    def add_custom_spell(self, name, level, t_text, r_text, duration, desc):
+        new_spell = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text, 'duration_text': duration, 'source_file': 'Custom'}
+        self.library = pd.concat([self.library, pd.DataFrame([new_spell])], ignore_index=True).reset_index(drop=True)
+
+    def add_custom_maneuver(self, name, level, resource, add_info, desc):
+        new_man = {'name': name, 'level': int(level), 'description': f"{desc}\n\n**Additional Info:** {add_info}", 'type': 'Maneuver', 'resource_cost': resource, 'source_file': 'Custom'}
+        self.library = pd.concat([self.library, pd.DataFrame([new_man])], ignore_index=True).reset_index(drop=True)
