@@ -4,9 +4,9 @@ import pandas as pd
 import time
 from engine import AbilityManager
 
-st.set_page_config(page_title="Character Manager V1.8", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Character Manager V1.9", layout="wide", initial_sidebar_state="expanded")
 
-# --- UI STYLING ---
+# --- STYLING ---
 st.markdown("""
 <style>
     .main { background: #0b0e14; color: #e0e0e0; }
@@ -58,14 +58,14 @@ with st.sidebar:
         for roll in engine.roll_history:
             st.markdown(f'<div class="history-card"><div style="display:flex; justify-content:space-between;"><span style="color:#58a6ff;"><b>{roll["result"]}</b></span><small style="color:#8b949e;">{roll["time"]}</small></div><small style="color:#8b949e;">{roll["formula"]}</small></div>', unsafe_allow_html=True)
 
-# --- HEADER METRICS ---
+# --- HEADER ---
 with st.container():
     h1, h2, h3, h4 = st.columns([2,1,1,1])
     with h1:
         st.write(f"**❤️ HP: {engine.hp['current']} / {engine.hp['max']}**")
         st.progress(engine.hp['current']/engine.hp['max'] if engine.hp['max'] > 0 else 0)
         adj_c1, adj_c2 = st.columns([2,1])
-        adj = adj_c1.number_input("HP Change", -500, 500, 0, label_visibility="collapsed", key="hp_adj")
+        adj = adj_c1.number_input("HP Adj", -500, 500, 0, label_visibility="collapsed", key="hp_adj")
         if adj_c2.button("Apply"): engine.update_hp(adj); st.rerun()
     h2.metric("🛡️ AC", engine.ac)
     h3.metric("🧠 Spell DC", engine.get_dc())
@@ -73,11 +73,11 @@ with st.container():
 
 st.divider()
 
-# --- MAIN NAVIGATION ---
+# --- MAIN NAV ---
 tabs = st.tabs(["👤 Hero", "📚 Library", "🧠 Known", "🎯 Loadout", "🌟 Traits", "✍️ Creator", "💾 Data"])
 
 with tabs[0]: # HERO
-    st.markdown('<div class="manual-box"><b>Hero Manual:</b> Roll checks, saves, or skills. Mark <b>Proficiency</b> to add bonuses. Use <b>Edit Mode</b> to set stats and your <b>Spellcasting Stat</b>.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="manual-box"><b>Hero Tab:</b> Roll checks, saves, and skills. Check boxes for <b>Proficiency</b>. Use <b>Edit Mode</b> to set stats and your <b>Spellcasting Stat</b>.</div>', unsafe_allow_html=True)
     edit = st.toggle("🛠️ EDIT MODE", key="hero_edit_toggle")
     if edit:
         c1, c2, c3, c4 = st.columns(4)
@@ -102,7 +102,8 @@ with tabs[0]: # HERO
         for i, stat in enumerate(engine.stats.keys()):
             target = sv1 if i < 3 else sv2
             with target:
-                c1, c2, c3 = st.columns([1,4,2]); is_p = c1.checkbox("", key=f"sv_p_{stat}", value=(stat in engine.save_profs))
+                c1, c2, c3 = st.columns([1,4,2])
+                is_p = c1.checkbox("", key=f"sv_p_{stat}", value=(stat in engine.save_profs))
                 if is_p and stat not in engine.save_profs: engine.save_profs.append(stat)
                 elif not is_p and stat in engine.save_profs: engine.save_profs.remove(stat)
                 bonus = engine.get_mod(engine.stats[stat]) + (engine.get_prof_bonus() if is_p else 0)
@@ -126,7 +127,7 @@ with tabs[0]: # HERO
                     t = engine.roll_dice(20, 1, bonus); res_sk.info(f"{t}"); time.sleep(2); res_sk.empty()
 
 with tabs[1]: # LIBRARY
-    st.markdown('<div class="manual-box"><b>Library Manual:</b> Upload JSONs. <b>Learn</b> adds to Known. <b>Prepare</b> sends to Loadout immediately.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="manual-box"><b>Library:</b> Upload JSONs. <b>Learn</b> adds to Known. <b>Prepare</b> sends to Loadout.</div>', unsafe_allow_html=True)
     st.file_uploader("Upload Libraries", accept_multiple_files=True, key="lib_upload")
     if st.session_state.lib_upload:
         for f in st.session_state.lib_upload: engine.load_file(f)
@@ -141,7 +142,7 @@ with tabs[1]: # LIBRARY
             with exp: st.write(row['description'])
 
 with tabs[2]: # KNOWN
-    st.markdown('<div class="manual-box"><b>Known Manual:</b> Browse your book. Use <b>Details</b> to read text. Click <b>Prepare</b> for combat use.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="manual-box"><b>Known:</b> Permanent collection. Click <b>Prepare</b> for Loadout.</div>', unsafe_allow_html=True)
     if engine.known.empty: st.info("No abilities learned.")
     for idx, row in engine.known.iterrows():
         with st.container(border=True):
@@ -152,7 +153,7 @@ with tabs[2]: # KNOWN
             with st.expander("Details"): st.write(row['description'])
 
 with tabs[3]: # LOADOUT
-    st.markdown('<div class="manual-box"><b>Loadout Manual:</b> Active combat cards. <b>Cast</b> subtracts a slot from the sidebar. <b>Remove</b> to unprepare.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="manual-box"><b>Loadout:</b> Active combat dashboard. <b>Cast</b> subtracts a slot from the sidebar.</div>', unsafe_allow_html=True)
     if engine.loadout.empty: st.info("Loadout is empty.")
     for idx, row in engine.loadout.iterrows():
         with st.container(border=True):
@@ -164,19 +165,18 @@ with tabs[3]: # LOADOUT
             with st.expander("Show Text"): st.write(row['description'])
 
 with tabs[4]: # TRAITS
-    st.markdown('<div class="manual-box"><b>Traits Manual:</b> Record racial traits or feats for quick reference.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="manual-box"><b>Traits:</b> Custom racial traits or feats.</div>', unsafe_allow_html=True)
     with st.expander("➕ Add Trait"):
-        f_n = st.text_input("Trait Name", key="tr_n"); f_d = st.text_area("Effect", key="tr_d")
+        f_n = st.text_input("Name", key="tr_n"); f_d = st.text_area("Effect", key="tr_d")
         if st.button("Save Trait"): engine.features.append({"name": f_n, "desc": f_d}); st.rerun()
     for i, feat in enumerate(engine.features):
         with st.container(border=True):
-            c1, c2 = st.columns([4, 1])
-            c1.markdown(f"**{feat['name']}**")
+            c1, c2 = st.columns([4, 1]); c1.markdown(f"**{feat['name']}**")
             if c2.button("🗑️", key=f"del_f_{i}"): engine.features.pop(i); st.rerun()
             st.write(feat['desc'])
 
 with tabs[5]: # CREATOR
-    st.markdown('<div class="manual-box"><b>Creator Manual:</b> Saved items go to <b>Library</b> for learning/preparing.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="manual-box"><b>Creator:</b> Design homebrew Spells/Maneuvers. Saved items go to <b>Library</b>.</div>', unsafe_allow_html=True)
     m_cr = st.radio("Type", ["Spell", "Maneuver"], horizontal=True, key="cr_t")
     c1, c2 = st.columns(2)
     with c1: cr_n = st.text_input("Name", key="cr_name"); cr_l = st.number_input("Lvl", 0, 9, key="cr_lvl")
