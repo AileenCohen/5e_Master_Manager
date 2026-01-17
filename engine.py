@@ -5,20 +5,20 @@ import random
 
 class AbilityManager:
     def __init__(self):
-        self.library = pd.DataFrame()
-        self.known = pd.DataFrame()  
-        self.loadout = pd.DataFrame() 
-        self.features = [] 
-        self.roll_history = []
-        self.current_file_names = []
-        
-        # --- CHARACTER CORE ---
+        # Initialize dictionaries and lists FIRST to avoid KeyErrors
         self.stats = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
         self.casting_stat = "INT"
         self.hp = {"current": 10, "max": 10}
         self.level = 1
         self.ac = 10
         self.proficiencies = []
+        
+        self.library = pd.DataFrame()
+        self.known = pd.DataFrame()
+        self.loadout = pd.DataFrame()
+        self.features = [] 
+        self.roll_history = []
+        self.current_file_names = []
 
     def get_mod(self, score):
         return (score - 10) // 2
@@ -27,10 +27,12 @@ class AbilityManager:
         return (self.level - 1) // 4 + 2
 
     def get_dc(self):
-        return 8 + self.get_prof_bonus() + self.get_mod(self.stats[self.casting_stat])
+        # Ensure casting_stat exists in stats
+        stat_score = self.stats.get(self.casting_stat, 10)
+        return 8 + self.get_prof_bonus() + self.get_mod(stat_score)
 
     def get_passive(self, skill_name, stat="WIS"):
-        mod = self.get_mod(self.stats[stat])
+        mod = self.get_mod(self.stats.get(stat, 10))
         prof = self.get_prof_bonus() if skill_name in self.proficiencies else 0
         return 10 + mod + prof
 
@@ -39,16 +41,13 @@ class AbilityManager:
         return "Long Rest Complete."
 
     def update_hp(self, amount):
-        new_hp = self.hp["current"] + amount
-        self.hp["current"] = max(0, min(new_hp, self.hp["max"]))
+        self.hp["current"] = max(0, min(self.hp["current"] + amount, self.hp["max"]))
 
     def roll_dice(self, sides, amount, modifier=0):
         rolls = [random.randint(1, sides) for _ in range(amount)]
         total = sum(rolls) + modifier
-        mod_str = f"{'+' if modifier >= 0 else ''}{modifier}"
-        entry = {"time": pd.Timestamp.now().strftime("%H:%M:%S"), "formula": f"{amount}d{sides}{mod_str}", "result": total, "details": f"{rolls} {mod_str}"}
+        entry = {"time": pd.Timestamp.now().strftime("%H:%M:%S"), "formula": f"{amount}d{sides}{modifier:+}", "result": total}
         self.roll_history.insert(0, entry)
-        if len(self.roll_history) > 20: self.roll_history.pop()
         return rolls, total
 
     def flatten_entries(self, entry):
@@ -64,71 +63,40 @@ class AbilityManager:
         lvl_str = "Cantrip" if lvl == 0 else f"Lvl {lvl}"
         meta = [f"✨ {lvl_str}"]
         try:
-            # 1. TIME
             t_data = row.get('time')
-            time = row.get('time_text') or (f"{t_data[0].get('number')} {t_data[0].get('unit')}" if isinstance(t_data, list) else None)
+            time = row.get('time_text') or (t_data[0].get('unit') if isinstance(t_data, list) else None)
             if time: meta.append(f"⏳ {time}")
             
-            # 2. RANGE (The Correct Range Fix)
             rng_data = row.get('range', {})
             dist = rng_data.get('distance', {})
             r_type = str(rng_data.get('type', 'special')).lower()
-            amt = dist.get('amount')
-            unit = dist.get('type')
-
-            if row.get('range_text'): # Use direct text if available
-                range_val = row['range_text']
-            elif r_type == 'self':
-                range_val = "Self"
-                if amt: range_val += f" ({amt} {unit} radius)"
-            elif r_type == 'touch':
-                range_val = "Touch"
-            elif amt and unit:
-                range_val = f"{amt} {unit}"
-            else:
-                range_val = r_type.capitalize()
+            amt, unit = dist.get('amount'), dist.get('type')
+            
+            if r_type == 'self': range_val = f"Self ({amt} {unit})" if amt else "Self"
+            elif r_type == 'touch': range_val = "Touch"
+            elif amt: range_val = f"{amt} {unit}"
+            else: range_val = r_type.capitalize()
             meta.append(f"🎯 {range_val}")
-
-            # 3. CONCENTRATION
-            dur_data = row.get('duration', [{}])
-            if isinstance(dur_data, list) and len(dur_data) > 0:
-                if dur_data[0].get('concentration'):
-                    meta.append("⚠️ Conc.")
-        except:
-            meta.append("🎯 Special")
+            
+            if isinstance(row.get('duration'), list) and row['duration'][0].get('concentration'):
+                meta.append("⚠️ Conc.")
+        except: pass
         return " | ".join(meta)
 
     def load_file(self, uploaded_file):
-        if uploaded_file.name in self.current_file_names: return
         data = json.load(uploaded_file)
         raw_list = data.get('spell', data) if isinstance(data, dict) else data
         df = pd.DataFrame(raw_list)
         df.columns = [str(c).lower().strip() for c in df.columns]
-        df['source_file'] = uploaded_file.name
         df['level'] = pd.to_numeric(df.get('level', 0), errors='coerce').fillna(0).astype(int)
-        desc_col = next((c for c in ['entries', 'description', 'desc', 'text'] if c in df.columns), None)
-        df['description'] = df[desc_col].apply(self.flatten_entries) if desc_col else "No description."
+        desc_col = next((c for c in ['entries', 'description', 'desc', 'text'] if c in df.columns), 'description')
+        df['description'] = df[desc_col].apply(self.flatten_entries)
         self.library = pd.concat([self.library, df], ignore_index=True).drop_duplicates(subset=['name']).reset_index(drop=True)
-        self.current_file_names.append(uploaded_file.name)
 
     def learn_ability(self, row):
         if self.known.empty or row['name'] not in self.known['name'].values:
-            self.known = pd.concat([self.known, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
+            self.known = pd.concat([self.known, pd.DataFrame([row])], ignore_index=True)
 
     def prepare_ability(self, row):
         if self.loadout.empty or row['name'] not in self.loadout['name'].values:
-            self.loadout = pd.concat([self.loadout, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
-
-    def remove_from_loadout(self, index):
-        self.loadout = self.loadout.drop(index).reset_index(drop=True)
-
-    def forget_ability(self, index):
-        self.known = self.known.drop(index).reset_index(drop=True)
-
-    def add_custom_spell(self, name, level, t_text, r_text, desc):
-        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text, 'source_file': 'Custom'}
-        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
-
-    def add_custom_maneuver(self, name, level, cost, desc):
-        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Maneuver', 'resource_cost': cost, 'source_file': 'Custom'}
-        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
+            self.loadout = pd.concat([self.loadout, pd.DataFrame([row])], ignore_index=True)
