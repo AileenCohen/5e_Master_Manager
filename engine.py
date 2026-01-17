@@ -36,7 +36,7 @@ class AbilityManager:
 
     def long_rest(self):
         self.hp["current"] = self.hp["max"]
-        return "Long Rest Complete: Vitality Restored."
+        return "Long Rest Complete."
 
     def update_hp(self, amount):
         new_hp = self.hp["current"] + amount
@@ -64,20 +64,38 @@ class AbilityManager:
         lvl_str = "Cantrip" if lvl == 0 else f"Lvl {lvl}"
         meta = [f"✨ {lvl_str}"]
         try:
-            # Time Logic
+            # 1. TIME
             t_data = row.get('time')
-            time = row.get('time_text') or (t_data[0].get('unit') if isinstance(t_data, list) else None)
+            time = row.get('time_text') or (f"{t_data[0].get('number')} {t_data[0].get('unit')}" if isinstance(t_data, list) else None)
             if time: meta.append(f"⏳ {time}")
             
-            # Range Logic (Feet)
+            # 2. RANGE (The Correct Range Fix)
             rng_data = row.get('range', {})
-            if isinstance(rng_data, dict):
-                dist = rng_data.get('distance', {})
-                amt = dist.get('amount')
-                unit = dist.get('type')
-                if amt and unit: meta.append(f"🎯 {amt} {unit}")
-                else: meta.append(f"🎯 {rng_data.get('type', 'Self')}")
-        except: pass
+            dist = rng_data.get('distance', {})
+            r_type = str(rng_data.get('type', 'special')).lower()
+            amt = dist.get('amount')
+            unit = dist.get('type')
+
+            if row.get('range_text'): # Use direct text if available
+                range_val = row['range_text']
+            elif r_type == 'self':
+                range_val = "Self"
+                if amt: range_val += f" ({amt} {unit} radius)"
+            elif r_type == 'touch':
+                range_val = "Touch"
+            elif amt and unit:
+                range_val = f"{amt} {unit}"
+            else:
+                range_val = r_type.capitalize()
+            meta.append(f"🎯 {range_val}")
+
+            # 3. CONCENTRATION
+            dur_data = row.get('duration', [{}])
+            if isinstance(dur_data, list) and len(dur_data) > 0:
+                if dur_data[0].get('concentration'):
+                    meta.append("⚠️ Conc.")
+        except:
+            meta.append("🎯 Special")
         return " | ".join(meta)
 
     def load_file(self, uploaded_file):
