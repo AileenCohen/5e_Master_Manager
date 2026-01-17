@@ -11,14 +11,14 @@ class AbilityManager:
         self.hp = {"current": 10, "max": 10}
         self.level = 1
         self.ac = 10
-        self.proficiencies = [] # For Skills
-        self.save_profs = []    # For Saving Throws
+        self.proficiencies = [] 
+        self.save_profs = []    
         
         # Data Tables
         self.library = pd.DataFrame()
         self.known = pd.DataFrame()
         self.loadout = pd.DataFrame()
-        self.features = [] 
+        self.features = [] # Traits live here
         self.roll_history = []
         self.current_file_names = []
 
@@ -39,7 +39,7 @@ class AbilityManager:
 
     def long_rest(self):
         self.hp["current"] = self.hp["max"]
-        return "Long Rest Complete. HP and resources restored."
+        return "Long Rest Complete."
 
     def update_hp(self, amount):
         self.hp["current"] = max(0, min(self.hp["current"] + amount, self.hp["max"]))
@@ -47,13 +47,7 @@ class AbilityManager:
     def roll_dice(self, sides, amount, modifier=0):
         rolls = [random.randint(1, sides) for _ in range(amount)]
         total = sum(rolls) + modifier
-        mod_str = f"{modifier:+}"
-        entry = {
-            "time": pd.Timestamp.now().strftime("%H:%M:%S"),
-            "formula": f"{amount}d{sides}{mod_str}",
-            "result": total,
-            "details": f"{rolls} {mod_str}"
-        }
+        entry = {"time": pd.Timestamp.now().strftime("%H:%M:%S"), "formula": f"{amount}d{sides}{modifier:+}", "result": total}
         self.roll_history.insert(0, entry)
         if len(self.roll_history) > 20: self.roll_history.pop()
         return total
@@ -87,7 +81,6 @@ class AbilityManager:
             elif amt: range_val = f"{amt} {unit}"
             else: range_val = r_type.capitalize() if r_type != 'point' else "Special"
             meta.append(f"🎯 {range_val}")
-            
             if isinstance(row.get('duration'), list) and row['duration'][0].get('concentration'):
                 meta.append("⚠️ Conc.")
         except: meta.append("🎯 Special")
@@ -119,4 +112,8 @@ class AbilityManager:
 
     def add_custom_spell(self, name, level, t_text, r_text, desc):
         new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text}
+        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
+
+    def add_custom_maneuver(self, name, level, cost, desc):
+        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Maneuver', 'resource_cost': cost}
         self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
