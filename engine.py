@@ -5,6 +5,7 @@ import random
 
 class AbilityManager:
     def __init__(self):
+        # Character Core
         self.stats = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
         self.casting_stat = "INT"
         self.hp = {"current": 10, "max": 10}
@@ -13,6 +14,7 @@ class AbilityManager:
         self.proficiencies = [] # For Skills
         self.save_profs = []    # For Saving Throws
         
+        # Data Tables
         self.library = pd.DataFrame()
         self.known = pd.DataFrame()
         self.loadout = pd.DataFrame()
@@ -27,7 +29,8 @@ class AbilityManager:
         return (self.level - 1) // 4 + 2
 
     def get_dc(self):
-        return 8 + self.get_prof_bonus() + self.get_mod(self.stats.get(self.casting_stat, 10))
+        stat_score = self.stats.get(self.casting_stat, 10)
+        return 8 + self.get_prof_bonus() + self.get_mod(stat_score)
 
     def get_passive(self, skill_name, stat="WIS"):
         mod = self.get_mod(self.stats.get(stat, 10))
@@ -36,7 +39,7 @@ class AbilityManager:
 
     def long_rest(self):
         self.hp["current"] = self.hp["max"]
-        return "Long Rest Complete."
+        return "Long Rest Complete. HP and resources restored."
 
     def update_hp(self, amount):
         self.hp["current"] = max(0, min(self.hp["current"] + amount, self.hp["max"]))
@@ -44,9 +47,16 @@ class AbilityManager:
     def roll_dice(self, sides, amount, modifier=0):
         rolls = [random.randint(1, sides) for _ in range(amount)]
         total = sum(rolls) + modifier
-        entry = {"time": pd.Timestamp.now().strftime("%H:%M:%S"), "formula": f"{amount}d{sides}{modifier:+}", "result": total}
+        mod_str = f"{modifier:+}"
+        entry = {
+            "time": pd.Timestamp.now().strftime("%H:%M:%S"),
+            "formula": f"{amount}d{sides}{mod_str}",
+            "result": total,
+            "details": f"{rolls} {mod_str}"
+        }
         self.roll_history.insert(0, entry)
-        return rolls, total
+        if len(self.roll_history) > 20: self.roll_history.pop()
+        return total
 
     def flatten_entries(self, entry):
         if isinstance(entry, str): return re.sub(r'\{@\w+ ([^|}]*)[^}]*\}', r'\1', entry)
@@ -100,3 +110,13 @@ class AbilityManager:
     def prepare_ability(self, row):
         if self.loadout.empty or row['name'] not in self.loadout['name'].values:
             self.loadout = pd.concat([self.loadout, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
+
+    def remove_from_loadout(self, index):
+        self.loadout = self.loadout.drop(index).reset_index(drop=True)
+
+    def forget_ability(self, index):
+        self.known = self.known.drop(index).reset_index(drop=True)
+
+    def add_custom_spell(self, name, level, t_text, r_text, desc):
+        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text}
+        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
