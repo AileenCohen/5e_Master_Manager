@@ -5,7 +5,6 @@ import random
 
 class AbilityManager:
     def __init__(self):
-        # Character Core
         self.stats = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
         self.casting_stat = "INT"
         self.hp = {"current": 10, "max": 10}
@@ -13,12 +12,10 @@ class AbilityManager:
         self.ac = 10
         self.proficiencies = [] 
         self.save_profs = []    
-        
-        # Data Tables
         self.library = pd.DataFrame()
         self.known = pd.DataFrame()
         self.loadout = pd.DataFrame()
-        self.features = [] # Traits live here
+        self.features = [] 
         self.roll_history = []
         self.current_file_names = []
 
@@ -29,8 +26,7 @@ class AbilityManager:
         return (self.level - 1) // 4 + 2
 
     def get_dc(self):
-        stat_score = self.stats.get(self.casting_stat, 10)
-        return 8 + self.get_prof_bonus() + self.get_mod(stat_score)
+        return 8 + self.get_prof_bonus() + self.get_mod(self.stats.get(self.casting_stat, 10))
 
     def get_passive(self, skill_name, stat="WIS"):
         mod = self.get_mod(self.stats.get(stat, 10))
@@ -68,12 +64,10 @@ class AbilityManager:
             t_data = row.get('time')
             time = row.get('time_text') or (f"{t_data[0].get('number')} {t_data[0].get('unit')}" if isinstance(t_data, list) else None)
             if time: meta.append(f"⏳ {time}")
-            
             rng_data = row.get('range', {})
             dist = rng_data.get('distance', {})
             r_type = str(rng_data.get('type', '')).lower()
             amt, unit = dist.get('amount'), dist.get('type', 'ft')
-            
             if row.get('range_text'): range_val = row['range_text']
             elif 'self' in r_type or 'self' in str(dist.get('type','')).lower():
                 range_val = f"Self ({amt} {unit} radius)" if amt else "Self"
@@ -87,6 +81,7 @@ class AbilityManager:
         return " | ".join(meta)
 
     def load_file(self, uploaded_file):
+        uploaded_file.seek(0) # CRITICAL FIX: Rewind the file
         data = json.load(uploaded_file)
         raw_list = data.get('spell', data) if isinstance(data, dict) else data
         df = pd.DataFrame(raw_list)
