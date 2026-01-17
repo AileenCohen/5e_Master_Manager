@@ -6,9 +6,9 @@ import random
 class AbilityManager:
     def __init__(self):
         self.library = pd.DataFrame()
-        self.known = pd.DataFrame()  # Permanent Collection
-        self.loadout = pd.DataFrame() # Daily Prepared List
-        self.features = [] 
+        self.known = pd.DataFrame()  
+        self.loadout = pd.DataFrame() 
+        self.features = [] # Custom character traits
         self.roll_history = []
         self.current_file_names = []
         
@@ -27,7 +27,6 @@ class AbilityManager:
         return (self.level - 1) // 4 + 2
 
     def get_dc(self):
-        # Dynamic calculation based on chosen casting stat
         return 8 + self.get_prof_bonus() + self.get_mod(self.stats[self.casting_stat])
 
     def get_passive(self, skill_name, stat="WIS"):
@@ -37,7 +36,7 @@ class AbilityManager:
 
     def long_rest(self):
         self.hp["current"] = self.hp["max"]
-        return "Long Rest Complete. HP and focus restored."
+        return "Long Rest Complete."
 
     def update_hp(self, amount):
         new_hp = self.hp["current"] + amount
@@ -99,3 +98,12 @@ class AbilityManager:
 
     def forget_ability(self, index):
         self.known = self.known.drop(index).reset_index(drop=True)
+
+    # --- RESTORED CREATOR LOGIC ---
+    def add_custom_spell(self, name, level, t_text, r_text, desc):
+        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text, 'source_file': 'Custom'}
+        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
+
+    def add_custom_maneuver(self, name, level, cost, desc):
+        new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Maneuver', 'resource_cost': cost, 'source_file': 'Custom'}
+        self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
