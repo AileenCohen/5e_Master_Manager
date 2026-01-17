@@ -11,6 +11,7 @@ st.markdown("""
 <style>
     .main { background: #0b0e14; color: #e0e0e0; }
     .stMetric { background: #161b22; border: 1px solid #30363d; border-radius: 10px; }
+    .roll-card { text-align: center; background: #1f242d; border: 2px solid #58a6ff; border-radius: 8px; padding: 10px; }
     .tab-manual { 
         background: rgba(88, 166, 255, 0.08); 
         border: 1px solid #58a6ff; 
@@ -34,11 +35,11 @@ def cast_spell_cb(lvl):
 
 def learn_btn_cb(row):
     engine.learn_ability(row)
-    st.toast(f"✨ {row['name']} learned!")
+    st.toast(f"✨ Learned {row['name']}!")
 
 def prep_btn_cb(row):
     engine.prepare_ability(row)
-    st.toast(f"🎯 {row['name']} prepared!")
+    st.toast(f"🎯 Prepared {row['name']}!")
 
 def load_bundle_cb():
     if st.session_state.bundle_uploader:
@@ -58,9 +59,9 @@ def load_bundle_cb():
 # --- SIDEBAR ---
 with st.sidebar:
     st.title("🛡️ Resources")
-    res_mode = st.radio("Tracker Mode", ["Spells", "Maneuvers"], horizontal=True)
+    res_mode = st.radio("Resource Mode", ["Spells", "Maneuvers"], horizontal=True, key="res_mode_radio")
     if res_mode == "Spells":
-        for l in range(1, 10): st.number_input(f"Lvl {l}", 0, 20, key=f"input_lvl_{l}")
+        for l in range(1, 10): st.number_input(f"Lvl {l} Slots", 0, 20, key=f"input_lvl_{l}")
     else:
         st.number_input("Dice Remaining", 0, 20, key="dice_widget")
     st.divider()
@@ -74,19 +75,19 @@ with st.container():
         st.write(f"**❤️ HP: {engine.hp['current']} / {engine.hp['max']}**")
         st.progress(engine.hp['current']/engine.hp['max'] if engine.hp['max'] > 0 else 0)
         adj_c1, adj_c2 = st.columns([2,1])
-        adj = adj_c1.number_input("Hit/Heal", -500, 500, 0, label_visibility="collapsed", key="hp_adj")
+        adj = adj_c1.number_input("HP Adj", -500, 500, 0, label_visibility="collapsed", key="hp_adj")
         if adj_c2.button("Apply"): engine.update_hp(adj); st.rerun()
     h2.metric("🛡️ AC", engine.ac)
     h3.metric("🧠 Spell DC", engine.get_dc(), help=f"8 + Prof + {engine.casting_stat} Mod")
-    h4.metric("👁️ Passive", engine.get_passive("Perception"))
+    h4.metric("👁️ Passive Perc", engine.get_passive("Perception"))
 
 st.divider()
 
-# --- MAIN NAV ---
+# --- MAIN NAVIGATION ---
 tabs = st.tabs(["👤 Hero", "📚 Library", "🧠 Known", "🎯 Loadout", "🌟 Traits", "✍️ Creator", "💾 Data"])
 
-with tabs[0]: # HERO
-    st.markdown('<div class="tab-manual"><b>HERO MANUAL:</b> Click Stat cards to roll. Mark proficiency boxes for skills. Toggle <b>Edit Mode</b> to set base stats and choose your <b>DC Stat</b>.</div>', unsafe_allow_html=True)
+with tabs[0]: # HERO TAB
+    st.markdown('<div class="tab-manual"><b>HERO SHEET:</b> Use Stat cards to roll. Check proficiency boxes for skills. Toggle <b>Edit Mode</b> to set base stats and your <b>Spellcasting Stat</b>.</div>', unsafe_allow_html=True)
     edit = st.toggle("🛠️ EDIT CHARACTER", key="hero_edit_toggle")
     if edit:
         c1, c2, c3, c4 = st.columns(4)
@@ -120,8 +121,8 @@ with tabs[0]: # HERO
                 if c3.button(f"{bonus:+}", key=f"r_skill_{sk}", use_container_width=True):
                     r, t = engine.roll_dice(20, 1, bonus); st.toast(f"{sk}: {t}")
 
-with tabs[1]: # LIBRARY
-    st.markdown('<div class="tab-manual"><b>LIBRARY:</b> Upload JSONs. <b>Learn</b> adds to Known collection. <b>Prepare</b> sends it to Loadout immediately.</div>', unsafe_allow_html=True)
+with tabs[1]: # LIBRARY TAB
+    st.markdown('<div class="tab-manual"><b>LIBRARY:</b> Upload JSON libraries here. <b>Learn</b> adds to Known. <b>Prepare</b> sends to Loadout immediately.</div>', unsafe_allow_html=True)
     st.file_uploader("Upload Libraries", accept_multiple_files=True, key="lib_upload")
     if st.session_state.lib_upload:
         for f in st.session_state.lib_upload: engine.load_file(f)
@@ -135,18 +136,20 @@ with tabs[1]: # LIBRARY
             c3.button("Prepare", key=f"p_btn_{idx}", on_click=prep_btn_cb, args=(row,), use_container_width=True)
             with exp: st.write(row['description'])
 
-with tabs[2]: # KNOWN
-    st.markdown('<div class="tab-manual"><b>KNOWN:</b> This is your permanent book. Click <b>Prepare</b> to move these into your combat Loadout.</div>', unsafe_allow_html=True)
+with tabs[2]: # KNOWN TAB
+    st.markdown('<div class="tab-manual"><b>KNOWN LIST:</b> This is your permanent spellbook. Click <b>Details</b> to read the full description, or <b>Prepare</b> to send it to combat.</div>', unsafe_allow_html=True)
     if engine.known.empty: st.info("No abilities learned.")
-    for idx, row in engine.known.iterrows():
-        with st.container(border=True):
-            c1, c2, c3 = st.columns([3, 1, 1])
-            c1.write(f"**{row['name']}** ({engine.parse_metadata(row)})")
-            c2.button("Prepare", key=f"k_prep_{idx}", on_click=prep_btn_cb, args=(row,), use_container_width=True)
-            if c3.button("Forget", key=f"k_f_{idx}"): engine.forget_ability(idx); st.rerun()
+    else:
+        for idx, row in engine.known.iterrows():
+            with st.container(border=True):
+                c1, c2, c3 = st.columns([3, 1, 1])
+                c1.write(f"**{row['name']}** ({engine.parse_metadata(row)})")
+                c2.button("Prepare", key=f"k_prep_{idx}", on_click=prep_btn_cb, args=(row,), use_container_width=True)
+                if c3.button("Forget", key=f"k_f_{idx}", use_container_width=True): engine.forget_ability(idx); st.rerun()
+                with st.expander("Show Details"): st.write(row['description'])
 
-with tabs[3]: # LOADOUT
-    st.markdown('<div class="tab-manual"><b>LOADOUT:</b> Active combat cards. <b>Cast</b> uses a spell slot. <b>Remove</b> unprepares it.</div>', unsafe_allow_html=True)
+with tabs[3]: # LOADOUT TAB
+    st.markdown('<div class="tab-manual"><b>LOADOUT:</b> Active combat cards. <b>Cast</b> subtracts a slot from the sidebar. <b>Remove</b> to unprepare.</div>', unsafe_allow_html=True)
     if engine.loadout.empty: st.info("Loadout empty.")
     for idx, row in engine.loadout.iterrows():
         with st.container(border=True):
@@ -155,26 +158,27 @@ with tabs[3]: # LOADOUT
             if res_mode == "Spells":
                 c2.button("Cast", key=f"lo_cast_{idx}", on_click=cast_spell_cb, args=(row['level'],), use_container_width=True)
             else:
-                if c2.button("Use Dice", key=f"lo_dice_{idx}"):
+                if c2.button("Use Dice", key=f"lo_dice_{idx}", use_container_width=True):
                     if st.session_state.dice_widget > 0: st.session_state.dice_widget -= 1; st.rerun()
-            if c3.button("Remove", key=f"lo_rem_{idx}"): engine.remove_from_loadout(idx); st.rerun()
+            if c3.button("Remove", key=f"lo_rem_{idx}", use_container_width=True): engine.remove_from_loadout(idx); st.rerun()
             st.caption(engine.parse_metadata(row))
             with st.expander("Details"): st.write(row['description'])
 
-with tabs[4]: # TRAITS
-    st.markdown('<div class="tab-manual"><b>TRAITS:</b> Record racial features, feats, or passive traits like Darkvision for quick reference.</div>', unsafe_allow_html=True)
+with tabs[4]: # TRAITS TAB
+    st.markdown('<div class="tab-manual"><b>TRAITS:</b> Passive features like Racial Traits or Feats.</div>', unsafe_allow_html=True)
     with st.expander("➕ Add Custom Trait"):
-        f_name = st.text_input("Name", key="tr_n")
+        f_name = st.text_input("Trait Name", key="tr_n")
         f_desc = st.text_area("Effect", key="tr_d")
-        if st.button("Save Trait"): engine.features.append({"name": f_name, "desc": f_desc}); st.rerun()
+        if st.button("Save"): engine.features.append({"name": f_name, "desc": f_desc}); st.rerun()
     for i, feat in enumerate(engine.features):
         with st.container(border=True):
-            st.markdown(f"**{feat['name']}**")
+            c1, c2 = st.columns([4, 1])
+            c1.markdown(f"**{feat['name']}**")
+            if c2.button("🗑️", key=f"del_f_{i}"): engine.features.pop(i); st.rerun()
             st.write(feat['desc'])
-            if st.button("Delete", key=f"del_f_{i}"): engine.features.pop(i); st.rerun()
 
-with tabs[5]: # CREATOR
-    st.markdown('<div class="tab-manual"><b>CREATOR:</b> Design homebrew Spells or Maneuvers. Once saved, find them in the <b>Library</b> tab to Learn/Prepare.</div>', unsafe_allow_html=True)
+with tabs[5]: # CREATOR TAB
+    st.markdown('<div class="tab-manual"><b>CREATOR:</b> Homebrew your own content. They will appear in the <b>Library</b> for Learning/Preparing.</div>', unsafe_allow_html=True)
     mode_cr = st.radio("Type", ["Spell", "Maneuver"], horizontal=True, key="cr_t")
     c1, c2 = st.columns(2)
     with c1: cr_name = st.text_input("Name", key="cr_n"); cr_lvl = st.number_input("Lvl", 0, 9, key="cr_l")
@@ -183,13 +187,12 @@ with tabs[5]: # CREATOR
             cr_time = st.text_input("Time", key="cr_ti"); cr_rng = st.text_input("Range", key="cr_r")
         else: cr_cost = st.text_input("Cost", key="cr_co")
     cr_desc = st.text_area("Effect Text", key="cr_de")
-    if st.button("✨ Add to Library"):
+    if st.button("✨ Save to Library"):
         if mode_cr == "Spell": engine.add_custom_spell(cr_name, cr_lvl, cr_time, cr_rng, cr_desc)
         else: engine.add_custom_maneuver(cr_name, cr_lvl, cr_cost, cr_desc)
         st.success(f"Added {cr_name}!"); time.sleep(1); st.rerun()
 
-with tabs[6]: # DATA
-    st.markdown('<div class="tab-manual"><b>DATA:</b> Backup your entire state (stats, learned spells, and traits) using <b>Export</b>.</div>', unsafe_allow_html=True)
+with tabs[6]: # DATA TAB
     save_b = json.dumps({
         "res": {"Slots": {f"lvl_{i}": st.session_state.get(f"input_lvl_{i}", 0) for i in range(1, 10)}, "Dice": st.session_state.get("dice_widget", 4)},
         "library": engine.library.to_dict(orient='records') if not engine.library.empty else None,
@@ -198,5 +201,5 @@ with tabs[6]: # DATA
         "features": engine.features,
         "character": {"stats": engine.stats, "hp": engine.hp, "ac": engine.ac, "level": engine.level, "proficiencies": engine.proficiencies, "cast_stat": engine.casting_stat}
     })
-    st.download_button("💾 Export Save", data=save_b, file_name="hero_bundle.json", use_container_width=True)
+    st.download_button("💾 Export Save", data=save_b, file_name="hero_save.json", use_container_width=True)
     st.file_uploader("📂 Import Bundle", type=['json'], key="bundle_uploader", on_change=load_bundle_cb)
