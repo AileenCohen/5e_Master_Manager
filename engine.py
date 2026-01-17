@@ -3,16 +3,15 @@ import json
 import re
 import random
 
-
 class AbilityManager:
     def __init__(self):
         self.library = pd.DataFrame()
-        self.known = pd.DataFrame()
-        self.loadout = pd.DataFrame()
-        self.features = []
+        self.known = pd.DataFrame()  # Permanent Collection
+        self.loadout = pd.DataFrame() # Daily Prepared List
+        self.features = [] 
         self.roll_history = []
         self.current_file_names = []
-
+        
         # --- CHARACTER CORE ---
         self.stats = {"STR": 10, "DEX": 10, "CON": 10, "INT": 10, "WIS": 10, "CHA": 10}
         self.casting_stat = "INT"
@@ -28,6 +27,7 @@ class AbilityManager:
         return (self.level - 1) // 4 + 2
 
     def get_dc(self):
+        # Dynamic calculation based on chosen casting stat
         return 8 + self.get_prof_bonus() + self.get_mod(self.stats[self.casting_stat])
 
     def get_passive(self, skill_name, stat="WIS"):
@@ -37,7 +37,7 @@ class AbilityManager:
 
     def long_rest(self):
         self.hp["current"] = self.hp["max"]
-        return "Long Rest Complete."
+        return "Long Rest Complete. HP and focus restored."
 
     def update_hp(self, amount):
         new_hp = self.hp["current"] + amount
@@ -47,8 +47,7 @@ class AbilityManager:
         rolls = [random.randint(1, sides) for _ in range(amount)]
         total = sum(rolls) + modifier
         mod_str = f"{'+' if modifier >= 0 else ''}{modifier}"
-        entry = {"time": pd.Timestamp.now().strftime("%H:%M:%S"), "formula": f"{amount}d{sides}{mod_str}",
-                 "result": total, "details": f"{rolls} {mod_str}"}
+        entry = {"time": pd.Timestamp.now().strftime("%H:%M:%S"), "formula": f"{amount}d{sides}{mod_str}", "result": total, "details": f"{rolls} {mod_str}"}
         self.roll_history.insert(0, entry)
         if len(self.roll_history) > 20: self.roll_history.pop()
         return rolls, total
@@ -63,17 +62,15 @@ class AbilityManager:
 
     def parse_metadata(self, row):
         lvl = row.get('level', 0)
-        lvl_str = "Cantrip" if lvl == 0 else f"Level {lvl}"
+        lvl_str = "Cantrip" if lvl == 0 else f"Lvl {lvl}"
         meta = [f"✨ {lvl_str}"]
         try:
             t_data = row.get('time')
             time = row.get('time_text') or (t_data[0].get('unit') if isinstance(t_data, list) else None)
             if time: meta.append(f"⏳ {time}")
-            rng = row.get('range_text') or (
-                row.get('range', {}).get('distance', {}).get('type') if isinstance(row.get('range'), dict) else None)
+            rng = row.get('range_text') or (row.get('range', {}).get('distance', {}).get('type') if isinstance(row.get('range'), dict) else None)
             if rng: meta.append(f"🎯 {rng}")
-        except:
-            pass
+        except: pass
         return " | ".join(meta)
 
     def load_file(self, uploaded_file):
@@ -86,11 +83,9 @@ class AbilityManager:
         df['level'] = pd.to_numeric(df.get('level', 0), errors='coerce').fillna(0).astype(int)
         desc_col = next((c for c in ['entries', 'description', 'desc', 'text'] if c in df.columns), None)
         df['description'] = df[desc_col].apply(self.flatten_entries) if desc_col else "No description."
-        self.library = pd.concat([self.library, df], ignore_index=True).drop_duplicates(subset=['name']).reset_index(
-            drop=True)
+        self.library = pd.concat([self.library, df], ignore_index=True).drop_duplicates(subset=['name']).reset_index(drop=True)
         self.current_file_names.append(uploaded_file.name)
 
-    # --- UPDATED MOVE LOGIC ---
     def learn_ability(self, row):
         if self.known.empty or row['name'] not in self.known['name'].values:
             self.known = pd.concat([self.known, pd.DataFrame([row])], ignore_index=True).reset_index(drop=True)
