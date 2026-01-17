@@ -8,7 +8,7 @@ class AbilityManager:
         self.library = pd.DataFrame()
         self.known = pd.DataFrame()  
         self.loadout = pd.DataFrame() 
-        self.features = [] # Custom character traits
+        self.features = [] 
         self.roll_history = []
         self.current_file_names = []
         
@@ -36,7 +36,7 @@ class AbilityManager:
 
     def long_rest(self):
         self.hp["current"] = self.hp["max"]
-        return "Long Rest Complete."
+        return "Long Rest Complete: Vitality Restored."
 
     def update_hp(self, amount):
         new_hp = self.hp["current"] + amount
@@ -64,11 +64,19 @@ class AbilityManager:
         lvl_str = "Cantrip" if lvl == 0 else f"Lvl {lvl}"
         meta = [f"✨ {lvl_str}"]
         try:
+            # Time Logic
             t_data = row.get('time')
             time = row.get('time_text') or (t_data[0].get('unit') if isinstance(t_data, list) else None)
             if time: meta.append(f"⏳ {time}")
-            rng = row.get('range_text') or (row.get('range', {}).get('distance', {}).get('type') if isinstance(row.get('range'), dict) else None)
-            if rng: meta.append(f"🎯 {rng}")
+            
+            # Range Logic (Feet)
+            rng_data = row.get('range', {})
+            if isinstance(rng_data, dict):
+                dist = rng_data.get('distance', {})
+                amt = dist.get('amount')
+                unit = dist.get('type')
+                if amt and unit: meta.append(f"🎯 {amt} {unit}")
+                else: meta.append(f"🎯 {rng_data.get('type', 'Self')}")
         except: pass
         return " | ".join(meta)
 
@@ -99,7 +107,6 @@ class AbilityManager:
     def forget_ability(self, index):
         self.known = self.known.drop(index).reset_index(drop=True)
 
-    # --- RESTORED CREATOR LOGIC ---
     def add_custom_spell(self, name, level, t_text, r_text, desc):
         new = {'name': name, 'level': int(level), 'description': desc, 'type': 'Spell', 'time_text': t_text, 'range_text': r_text, 'source_file': 'Custom'}
         self.library = pd.concat([self.library, pd.DataFrame([new])], ignore_index=True).reset_index(drop=True)
