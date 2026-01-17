@@ -6,8 +6,8 @@ import random
 class AbilityManager:
     def __init__(self):
         self.library = pd.DataFrame()
-        self.known = pd.DataFrame()  # Permanent list (Spellbook)
-        self.loadout = pd.DataFrame() # Daily list (Prepared)
+        self.known = pd.DataFrame()  # Permanent "Collection"
+        self.loadout = pd.DataFrame() # Active "Daily" list
         self.resources = {"Slots": {f"lvl_{i}": 0 for i in range(1, 10)}, "Dice": 4}
         self.current_file_names = []
         

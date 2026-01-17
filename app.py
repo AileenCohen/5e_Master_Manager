@@ -63,44 +63,65 @@ with st.sidebar:
     else: st.number_input("Dice Remaining", 0, 20, key="dice_widget")
 
 with col_main:
-    # --- FULL SYSTEM MANUAL ---
-    with st.expander("📖 COMPLETE SYSTEM MANUAL - Click to Open"):
-        help_tabs = st.tabs(["🚀 Setup", "👤 Character Sheet", "⚔️ Combat", "🧠 Spell Management", "💾 Saving"])
+    # --- COMPREHENSIVE SYSTEM MANUAL ---
+    with st.expander("📖 COMPREHENSIVE SYSTEM MANUAL - Click to Open"):
+        help_tabs = st.tabs(["🚀 Quick Start", "👤 Character Sheet", "🧠 Ability Management", "⚔️ Combat & Rolls", "💾 Data Persistence"])
         
         with help_tabs[0]:
             st.markdown("""
-            ### Initial Setup
-            1. **Upload Libraries:** Drag and drop JSON files into the **Library Uploader**.
-            2. **The Source:** The top-right of entries shows which file they came from.
+            ### 1. Upload Your Data
+            Drag and drop your JSON ability libraries into the **Library Uploader**. You can upload multiple files at once.
+            
+            ### 2. Search and Browse
+            Use the **📚 Library** tab to find spells, maneuvers, or items. You can filter by Level or use the search bar to find specific names.
             """)
 
         with help_tabs[1]:
             st.markdown("""
-            ### Character Sheet
-            1. **Stats & Skills:** Bonuses calculate automatically.
-            2. **Edit Mode:** Toggle to change base scores. **⚠️ YOU MUST PRESS ENTER** after typing to save.
-            3. **Rolls:** Result cards appear directly above buttons for 5 seconds.
+            ### Managing Stats
+            - **View Mode:** See your modifiers and roll directly.
+            - **Edit Mode:** Toggle the switch at the top to change your base Ability Scores, Max HP, AC, and Character Level.
+            - **⚠️ Critical:** After typing a number in Edit Mode, **you must press the ENTER key** to save that value to the character.
+            
+            ### Skills and Proficiencies
+            Check the box next to a skill to mark it as proficient. The bonus will automatically include your Proficiency Bonus based on your level.
             """)
             
         with help_tabs[2]:
             st.markdown("""
-            ### Combat
-            1. **Mode:** Switch between Spell Slots or Maneuver Dice in the sidebar.
-            2. **Dashboard:** Use the **🎯 Active Loadout** tab during your turn to cast or use abilities.
+            ### Two Ways to Manage Abilities
+            Depending on your character's needs, you have two options for moving abilities from the main Library:
+
+            **Option A: Direct Preparation (Instant Access)**
+            1. In the **📚 Library**, click **"Prepare"**.
+            2. The ability moves directly to the **🎯 Active Loadout** tab. Use this for abilities you always have access to.
+
+            **Option B: The Known List (Collection)**
+            1. In the **📚 Library**, click **"Learn"**.
+            2. The ability moves to the **🧠 Known** tab. This acts as your permanent collection (like a Wizard's spellbook).
+            3. From the **🧠 Known** tab, click **"Prepare"** to move it to your Active Loadout for the day.
             """)
 
         with help_tabs[3]:
             st.markdown("""
-            ### Flexible Spell Management
-            - **Divine/Prepared Casters (Cleric/Paladin/Martials):** Go to **📚 Library** and click **Prepare**. It goes straight to your Loadout.
-            - **Spells Known Casters (Wizard/Sorcerer/Bard):** 1. Go to **📚 Library** and click **Learn** to add to your **🧠 Known** tab (Spellbook).
-                2. During a rest, go to the **🧠 Known** tab and click **Prepare** for today's list.
+            ### Rolling Dice
+            - Click any **Roll** button for Stats or Skills.
+            - The result will appear in a highlighted box **exactly above the button you clicked**.
+            - The result card will automatically disappear after 5 seconds to keep your sheet clean.
+            - View the **History** tab in the sidebar for a record of every roll made during the session.
+
+            ### Resource Tracking
+            - **Cast:** Click "Cast" in your Loadout to automatically subtract a spell slot of that level.
+            - **Use Dice:** Subtracts one from your "Dice Remaining" counter in the sidebar.
             """)
             
         with help_tabs[4]:
             st.markdown("""
-            ### Persistent Sessions
-            Streamlit clears on refresh. Use **Export Everything** to create a `.json` backup. Use **Import Bundle** to restore your Library, Known Spells, Loadout, and Stats.
+            ### Saving and Loading (Crucial)
+            Streamlit is a web-app; if you refresh the page or close your browser, **unsaved data will be lost**.
+            
+            1. **Export Everything:** Regularly click this button in the sidebar. It saves your Library, your Known abilities, your Active Loadout, and your current HP/Stats into one file.
+            2. **Import Bundle:** When you return for a new session, **simply upload your exported JSON here**. It will restore the entire app exactly as you left it.
             """)
 
     uploaded_files = st.file_uploader("Library Uploader", type=['json'], accept_multiple_files=True)
@@ -110,7 +131,11 @@ with col_main:
     tab_sheet, tab_lib, tab_known, tab_load, tab_cre = st.tabs(["👤 Sheet", "📚 Library", "🧠 Known", "🎯 Active Loadout", "✍️ Creator"])
     
     with tab_sheet:
-        edit_mode = st.toggle("🛠️ EDIT MODE - Press ENTER after typing!", value=False)
+        if not hasattr(engine, 'hp'):
+            st.error("Engine attributes missing. Restart App.")
+            st.stop()
+
+        edit_mode = st.toggle("🛠️ EDIT MODE - Press ENTER after typing values!", value=False)
         st.divider()
 
         if edit_mode:
@@ -125,8 +150,9 @@ with col_main:
         else:
             hp_col, ac_col, init_col, prof_col = st.columns([2, 1, 1, 1])
             with hp_col:
+                pct = engine.hp['current'] / engine.hp['max'] if engine.hp['max'] > 0 else 0
                 st.write(f"**HP: {engine.hp['current']} / {engine.hp['max']}**")
-                st.progress(engine.hp['current'] / engine.hp['max'] if engine.hp['max'] > 0 else 0)
+                st.progress(pct)
                 h1, h2, h3 = st.columns([2, 1, 1])
                 amt = h1.number_input("Amt", 0, 500, 0, key="hp_in", label_visibility="collapsed")
                 if h2.button("💥 Hit", use_container_width=True): engine.update_hp(-amt); st.rerun()
@@ -149,6 +175,7 @@ with col_main:
 
         st.divider()
         st.subheader("🎯 Skills")
+        
         skills = {"Acrobatics": "DEX", "Animal Handling": "WIS", "Arcana": "INT", "Athletics": "STR", "Deception": "CHA", "History": "INT", "Insight": "WIS", "Intimidation": "CHA", "Investigation": "INT", "Medicine": "WIS", "Nature": "INT", "Perception": "WIS", "Performance": "CHA", "Persuasion": "CHA", "Religion": "INT", "Sleight of Hand": "DEX", "Stealth": "DEX", "Survival": "WIS"}
         sk1, sk2 = st.columns(2)
         for i, (sk, st_map) in enumerate(skills.items()):
@@ -187,8 +214,9 @@ with col_main:
                     st.caption(engine.parse_metadata(row)); st.write(row['description'])
 
     with tab_known:
-        st.subheader("🧠 Known Spells")
-        if engine.known.empty: st.info("Learn spells from the Library tab first.")
+        st.subheader("🧠 Known Spells / Collection")
+        if engine.known.empty:
+            st.info("Learn spells from the Library tab first.")
         else:
             for idx, row in engine.known.iterrows():
                 with st.container(border=True):
@@ -230,12 +258,17 @@ with col_main:
 # --- DICE COLUMN ---
 with col_dice:
     st.markdown("### 🎲 Dice Tray")
-    sides = st.selectbox("Die", [20, 12, 10, 8, 6, 4], format_func=lambda x: f"d{x}")
-    cq, cm = st.columns(2)
-    qty = cq.number_input("Qty", 1, 20, 1); mod = cm.number_input("Mod", -20, 20, 0)
-    if st.button("🔥 ROLL", use_container_width=True):
-        r, t = engine.roll_dice(sides, qty, mod)
-        st.markdown(f"<div style='text-align:center; background:#1a1c24; border:2px solid #00ffcc;'><h1 style='color:#00ffcc;'>{t}</h1></div>", unsafe_allow_html=True)
-    st.divider()
-    for item in engine.roll_history[:5]:
-        st.caption(f"{item['time']} | {item['formula']} = **{item['result']}**")
+    dt, ht = st.tabs(["Roller", "History"])
+    with dt:
+        sides = st.selectbox("Die", [20, 12, 10, 8, 6, 4], format_func=lambda x: f"d{x}")
+        cq, cm = st.columns(2)
+        qty = cq.number_input("Qty", 1, 20, 1); mod = cm.number_input("Mod", -20, 20, 0)
+        if st.button("🔥 ROLL", use_container_width=True):
+            r, t = engine.roll_dice(sides, qty, mod)
+            st.markdown(f"<div style='text-align:center; background:#1a1c24; border:2px solid #00ffcc;'><h1 style='color:#00ffcc;'>{t}</h1></div>", unsafe_allow_html=True)
+    with ht:
+        if hasattr(engine, 'roll_history'):
+            for item in engine.roll_history:
+                with st.container(border=True): 
+                    st.markdown(f"**{item['result']}** ({item['formula']})")
+                    st.caption(f"{item['time']} | {item['details']}")
